@@ -1,0 +1,486 @@
+import { sql, relations } from "drizzle-orm";
+import { 
+  pgTable, 
+  text, 
+  varchar, 
+  uuid, 
+  timestamp, 
+  decimal, 
+  integer, 
+  boolean, 
+  jsonb,
+  index
+} from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// Tenants table - Core multi-tenant structure
+export const tenants = pgTable("tenants", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  subdomain: varchar("subdomain", { length: 50 }).unique(),
+  status: text("status", { enum: ["active", "suspended", "trial", "expired"] }).default("trial").notNull(),
+  subscriptionId: text("subscription_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Users table
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  phone: varchar("phone", { length: 20 }),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// User-Tenant relationship with roles
+export const userTenants = pgTable("user_tenants", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  role: text("role", { enum: ["OWNER", "ADMIN", "AGENT", "LISTING_MANAGER", "ACCOUNT"] }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userTenantIdx: index("user_tenant_idx").on(table.userId, table.tenantId),
+}));
+
+// Pipelines - Customizable sales pipelines per tenant
+export const pipelines = pgTable("pipelines", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("pipeline_tenant_idx").on(table.tenantId),
+}));
+
+// Stages within pipelines
+export const stages = pgTable("stages", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  pipelineId: uuid("pipeline_id").references(() => pipelines.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  color: varchar("color", { length: 7 }).default("#3b82f6"),
+  position: integer("position").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("stage_tenant_idx").on(table.tenantId),
+  pipelineIdx: index("stage_pipeline_idx").on(table.pipelineId),
+}));
+
+// Properties - Core real estate inventory
+export const properties = pgTable("properties", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  pincode: varchar("pincode", { length: 10 }),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  propertyType: text("property_type", { enum: ["apartment", "villa", "penthouse", "studio", "office", "commercial"] }).notNull(),
+  listingType: text("listing_type", { enum: ["sale", "rent", "both"] }).notNull(),
+  price: decimal("price", { precision: 15, scale: 2 }).notNull(),
+  rentPrice: decimal("rent_price", { precision: 15, scale: 2 }),
+  area: decimal("area", { precision: 10, scale: 2 }),
+  bedrooms: integer("bedrooms"),
+  bathrooms: integer("bathrooms"),
+  parking: integer("parking"),
+  amenities: jsonb("amenities").default("[]"),
+  images: jsonb("images").default("[]"),
+  reraId: text("rera_id"),
+  status: text("status", { enum: ["available", "sold", "rented", "hold"] }).default("available").notNull(),
+  createdBy: uuid("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("property_tenant_idx").on(table.tenantId),
+  statusIdx: index("property_status_idx").on(table.status),
+  cityIdx: index("property_city_idx").on(table.city),
+}));
+
+// Contacts - Clients and prospects
+export const contacts = pgTable("contacts", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email"),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  alternatePhone: varchar("alternate_phone", { length: 20 }),
+  address: text("address"),
+  city: text("city"),
+  contactType: text("contact_type", { enum: ["buyer", "seller", "tenant", "landlord", "investor"] }).notNull(),
+  source: text("source", { enum: ["website", "referral", "advertisement", "cold_call", "social_media"] }),
+  assignedTo: uuid("assigned_to").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("contact_tenant_idx").on(table.tenantId),
+  phoneIdx: index("contact_phone_idx").on(table.phone),
+  emailIdx: index("contact_email_idx").on(table.email),
+}));
+
+// Leads - Potential clients
+export const leads = pgTable("leads", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email"),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  source: text("source", { enum: ["website", "referral", "advertisement", "cold_call", "social_media"] }),
+  status: text("status", { enum: ["new", "contacted", "qualified", "unqualified", "converted"] }).default("new").notNull(),
+  budget: decimal("budget", { precision: 15, scale: 2 }),
+  requirements: text("requirements"),
+  assignedTo: uuid("assigned_to").references(() => users.id),
+  priority: text("priority", { enum: ["low", "medium", "high", "hot"] }).default("medium").notNull(),
+  lastContactDate: timestamp("last_contact_date"),
+  nextFollowUp: timestamp("next_follow_up"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("lead_tenant_idx").on(table.tenantId),
+  statusIdx: index("lead_status_idx").on(table.status),
+  priorityIdx: index("lead_priority_idx").on(table.priority),
+}));
+
+// Deals - Active transactions in pipeline
+export const deals = pgTable("deals", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  title: text("title").notNull(),
+  pipelineId: uuid("pipeline_id").references(() => pipelines.id, { onDelete: "cascade" }).notNull(),
+  stageId: uuid("stage_id").references(() => stages.id, { onDelete: "cascade" }).notNull(),
+  propertyId: uuid("property_id").references(() => properties.id),
+  contactId: uuid("contact_id").references(() => contacts.id),
+  value: decimal("value", { precision: 15, scale: 2 }).notNull(),
+  commission: decimal("commission", { precision: 15, scale: 2 }),
+  assignedTo: uuid("assigned_to").references(() => users.id).notNull(),
+  probability: integer("probability").default(50),
+  expectedCloseDate: timestamp("expected_close_date"),
+  actualCloseDate: timestamp("actual_close_date"),
+  position: integer("position").default(0),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("deal_tenant_idx").on(table.tenantId),
+  stageIdx: index("deal_stage_idx").on(table.stageId),
+  assignedIdx: index("deal_assigned_idx").on(table.assignedTo),
+}));
+
+// Site visits scheduling
+export const siteVisits = pgTable("site_visits", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  propertyId: uuid("property_id").references(() => properties.id, { onDelete: "cascade" }).notNull(),
+  contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "cascade" }).notNull(),
+  dealId: uuid("deal_id").references(() => deals.id),
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  duration: integer("duration").default(60), // minutes
+  agentId: uuid("agent_id").references(() => users.id).notNull(),
+  status: text("status", { enum: ["scheduled", "completed", "cancelled", "no_show"] }).default("scheduled").notNull(),
+  feedback: text("feedback"),
+  followUpRequired: boolean("follow_up_required").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("site_visit_tenant_idx").on(table.tenantId),
+  dateIdx: index("site_visit_date_idx").on(table.scheduledDate),
+}));
+
+// Files and documents
+export const files = pgTable("files", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  fileName: text("file_name").notNull(),
+  originalName: text("original_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  path: text("path").notNull(),
+  entityType: text("entity_type", { enum: ["property", "deal", "contact", "tenant"] }),
+  entityId: uuid("entity_id"),
+  uploadedBy: uuid("uploaded_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("file_tenant_idx").on(table.tenantId),
+  entityIdx: index("file_entity_idx").on(table.entityType, table.entityId),
+}));
+
+// Automation rules
+export const automationRules = pgTable("automation_rules", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  triggerType: text("trigger_type", { enum: ["stage_change", "time_based", "property_update", "visit_scheduled"] }).notNull(),
+  triggerParams: jsonb("trigger_params").default("{}"),
+  actionType: text("action_type", { enum: ["send_email", "send_whatsapp", "create_task", "update_field"] }).notNull(),
+  actionParams: jsonb("action_params").default("{}"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdBy: uuid("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("automation_tenant_idx").on(table.tenantId),
+}));
+
+// Audit logs for compliance
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => users.id),
+  action: text("action").notNull(),
+  entityType: text("entity_type"),
+  entityId: uuid("entity_id"),
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("audit_tenant_idx").on(table.tenantId),
+  entityIdx: index("audit_entity_idx").on(table.entityType, table.entityId),
+}));
+
+// Relations
+export const tenantsRelations = relations(tenants, ({ many }) => ({
+  userTenants: many(userTenants),
+  properties: many(properties),
+  deals: many(deals),
+  contacts: many(contacts),
+  leads: many(leads),
+}));
+
+export const usersRelations = relations(users, ({ many }) => ({
+  userTenants: many(userTenants),
+  assignedLeads: many(leads),
+  assignedDeals: many(deals),
+}));
+
+export const userTenantsRelations = relations(userTenants, ({ one }) => ({
+  user: one(users, {
+    fields: [userTenants.userId],
+    references: [users.id],
+  }),
+  tenant: one(tenants, {
+    fields: [userTenants.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const pipelinesRelations = relations(pipelines, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [pipelines.tenantId],
+    references: [tenants.id],
+  }),
+  stages: many(stages),
+  deals: many(deals),
+}));
+
+export const stagesRelations = relations(stages, ({ one, many }) => ({
+  pipeline: one(pipelines, {
+    fields: [stages.pipelineId],
+    references: [pipelines.id],
+  }),
+  deals: many(deals),
+}));
+
+export const propertiesRelations = relations(properties, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [properties.tenantId],
+    references: [tenants.id],
+  }),
+  creator: one(users, {
+    fields: [properties.createdBy],
+    references: [users.id],
+  }),
+  deals: many(deals),
+  siteVisits: many(siteVisits),
+}));
+
+export const contactsRelations = relations(contacts, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [contacts.tenantId],
+    references: [tenants.id],
+  }),
+  assignedAgent: one(users, {
+    fields: [contacts.assignedTo],
+    references: [users.id],
+  }),
+  deals: many(deals),
+  siteVisits: many(siteVisits),
+}));
+
+export const leadsRelations = relations(leads, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [leads.tenantId],
+    references: [tenants.id],
+  }),
+  assignedAgent: one(users, {
+    fields: [leads.assignedTo],
+    references: [users.id],
+  }),
+}));
+
+export const dealsRelations = relations(deals, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [deals.tenantId],
+    references: [tenants.id],
+  }),
+  pipeline: one(pipelines, {
+    fields: [deals.pipelineId],
+    references: [pipelines.id],
+  }),
+  stage: one(stages, {
+    fields: [deals.stageId],
+    references: [stages.id],
+  }),
+  property: one(properties, {
+    fields: [deals.propertyId],
+    references: [properties.id],
+  }),
+  contact: one(contacts, {
+    fields: [deals.contactId],
+    references: [contacts.id],
+  }),
+  assignedAgent: one(users, {
+    fields: [deals.assignedTo],
+    references: [users.id],
+  }),
+  siteVisits: many(siteVisits),
+}));
+
+export const siteVisitsRelations = relations(siteVisits, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [siteVisits.tenantId],
+    references: [tenants.id],
+  }),
+  property: one(properties, {
+    fields: [siteVisits.propertyId],
+    references: [properties.id],
+  }),
+  contact: one(contacts, {
+    fields: [siteVisits.contactId],
+    references: [contacts.id],
+  }),
+  deal: one(deals, {
+    fields: [siteVisits.dealId],
+    references: [deals.id],
+  }),
+  agent: one(users, {
+    fields: [siteVisits.agentId],
+    references: [users.id],
+  }),
+}));
+
+// Insert schemas for validation
+export const insertTenantSchema = createInsertSchema(tenants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserTenantSchema = createInsertSchema(userTenants).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPipelineSchema = createInsertSchema(pipelines).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStageSchema = createInsertSchema(stages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPropertySchema = createInsertSchema(properties).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertContactSchema = createInsertSchema(contacts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLeadSchema = createInsertSchema(leads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDealSchema = createInsertSchema(deals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSiteVisitSchema = createInsertSchema(siteVisits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFileSchema = createInsertSchema(files).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types
+export type Tenant = typeof tenants.$inferSelect;
+export type InsertTenant = z.infer<typeof insertTenantSchema>;
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type UserTenant = typeof userTenants.$inferSelect;
+export type InsertUserTenant = z.infer<typeof insertUserTenantSchema>;
+
+export type Pipeline = typeof pipelines.$inferSelect;
+export type InsertPipeline = z.infer<typeof insertPipelineSchema>;
+
+export type Stage = typeof stages.$inferSelect;
+export type InsertStage = z.infer<typeof insertStageSchema>;
+
+export type Property = typeof properties.$inferSelect;
+export type InsertProperty = z.infer<typeof insertPropertySchema>;
+
+export type Contact = typeof contacts.$inferSelect;
+export type InsertContact = z.infer<typeof insertContactSchema>;
+
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;
+
+export type Deal = typeof deals.$inferSelect;
+export type InsertDeal = z.infer<typeof insertDealSchema>;
+
+export type SiteVisit = typeof siteVisits.$inferSelect;
+export type InsertSiteVisit = z.infer<typeof insertSiteVisitSchema>;
+
+export type File = typeof files.$inferSelect;
+export type InsertFile = z.infer<typeof insertFileSchema>;

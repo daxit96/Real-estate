@@ -1,0 +1,491 @@
+import { 
+  tenants, users, userTenants, pipelines, stages, properties, 
+  contacts, leads, deals, siteVisits, files, auditLogs,
+  type Tenant, type InsertTenant,
+  type User, type InsertUser,
+  type UserTenant, type InsertUserTenant,
+  type Pipeline, type InsertPipeline,
+  type Stage, type InsertStage,
+  type Property, type InsertProperty,
+  type Contact, type InsertContact,
+  type Lead, type InsertLead,
+  type Deal, type InsertDeal,
+  type SiteVisit, type InsertSiteVisit,
+  type File, type InsertFile
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc, asc, sql } from "drizzle-orm";
+
+export interface IStorage {
+  // User management
+  getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  
+  // Tenant management
+  getTenant(id: string): Promise<Tenant | undefined>;
+  getTenantBySubdomain(subdomain: string): Promise<Tenant | undefined>;
+  createTenant(tenant: InsertTenant): Promise<Tenant>;
+  
+  // User-Tenant relationships
+  getUserTenants(userId: string): Promise<(UserTenant & { tenant: Tenant })[]>;
+  createUserTenant(userTenant: InsertUserTenant): Promise<UserTenant>;
+  getUserInTenant(userId: string, tenantId: string): Promise<UserTenant | undefined>;
+  
+  // Pipelines
+  getPipelines(tenantId: string): Promise<Pipeline[]>;
+  createPipeline(pipeline: InsertPipeline): Promise<Pipeline>;
+  
+  // Stages
+  getStages(tenantId: string, pipelineId?: string): Promise<Stage[]>;
+  createStage(stage: InsertStage): Promise<Stage>;
+  
+  // Properties
+  getProperties(tenantId: string): Promise<Property[]>;
+  getProperty(id: string, tenantId: string): Promise<Property | undefined>;
+  createProperty(property: InsertProperty): Promise<Property>;
+  updateProperty(id: string, tenantId: string, updates: Partial<InsertProperty>): Promise<Property | undefined>;
+  deleteProperty(id: string, tenantId: string): Promise<void>;
+  
+  // Contacts
+  getContacts(tenantId: string): Promise<Contact[]>;
+  getContact(id: string, tenantId: string): Promise<Contact | undefined>;
+  createContact(contact: InsertContact): Promise<Contact>;
+  updateContact(id: string, tenantId: string, updates: Partial<InsertContact>): Promise<Contact | undefined>;
+  deleteContact(id: string, tenantId: string): Promise<void>;
+  
+  // Leads
+  getLeads(tenantId: string): Promise<Lead[]>;
+  getLead(id: string, tenantId: string): Promise<Lead | undefined>;
+  createLead(lead: InsertLead): Promise<Lead>;
+  updateLead(id: string, tenantId: string, updates: Partial<InsertLead>): Promise<Lead | undefined>;
+  deleteLead(id: string, tenantId: string): Promise<void>;
+  
+  // Deals
+  getDeals(tenantId: string, pipelineId?: string): Promise<(Deal & { property?: Property; contact?: Contact; stage: Stage })[]>;
+  getDeal(id: string, tenantId: string): Promise<(Deal & { property?: Property; contact?: Contact; stage: Stage }) | undefined>;
+  createDeal(deal: InsertDeal): Promise<Deal>;
+  updateDeal(id: string, tenantId: string, updates: Partial<InsertDeal>): Promise<Deal | undefined>;
+  deleteDeal(id: string, tenantId: string): Promise<void>;
+  
+  // Site visits
+  getSiteVisits(tenantId: string): Promise<(SiteVisit & { property: Property; contact: Contact })[]>;
+  createSiteVisit(siteVisit: InsertSiteVisit): Promise<SiteVisit>;
+  
+  // Files
+  createFile(file: InsertFile): Promise<File>;
+  getFiles(tenantId: string, entityType?: string, entityId?: string): Promise<File[]>;
+  
+  // Dashboard stats
+  getDashboardStats(tenantId: string): Promise<{
+    activeDeals: number;
+    monthlyRevenue: number;
+    propertiesListed: number;
+    siteVisits: number;
+  }>;
+}
+
+export class DatabaseStorage implements IStorage {
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async getTenant(id: string): Promise<Tenant | undefined> {
+    const [tenant] = await db.select().from(tenants).where(eq(tenants.id, id));
+    return tenant || undefined;
+  }
+
+  async getTenantBySubdomain(subdomain: string): Promise<Tenant | undefined> {
+    const [tenant] = await db.select().from(tenants).where(eq(tenants.subdomain, subdomain));
+    return tenant || undefined;
+  }
+
+  async createTenant(insertTenant: InsertTenant): Promise<Tenant> {
+    const [tenant] = await db
+      .insert(tenants)
+      .values(insertTenant)
+      .returning();
+    return tenant;
+  }
+
+  async getUserTenants(userId: string): Promise<(UserTenant & { tenant: Tenant })[]> {
+    const result = await db
+      .select()
+      .from(userTenants)
+      .innerJoin(tenants, eq(userTenants.tenantId, tenants.id))
+      .where(eq(userTenants.userId, userId));
+    
+    return result.map(row => ({
+      ...row.user_tenants,
+      tenant: row.tenants,
+    }));
+  }
+
+  async createUserTenant(userTenant: InsertUserTenant): Promise<UserTenant> {
+    const [created] = await db
+      .insert(userTenants)
+      .values(userTenant)
+      .returning();
+    return created;
+  }
+
+  async getUserInTenant(userId: string, tenantId: string): Promise<UserTenant | undefined> {
+    const [userTenant] = await db
+      .select()
+      .from(userTenants)
+      .where(and(
+        eq(userTenants.userId, userId),
+        eq(userTenants.tenantId, tenantId),
+        eq(userTenants.isActive, true)
+      ));
+    return userTenant || undefined;
+  }
+
+  async getPipelines(tenantId: string): Promise<Pipeline[]> {
+    return await db
+      .select()
+      .from(pipelines)
+      .where(and(eq(pipelines.tenantId, tenantId), eq(pipelines.isActive, true)))
+      .orderBy(asc(pipelines.name));
+  }
+
+  async createPipeline(pipeline: InsertPipeline): Promise<Pipeline> {
+    const [created] = await db
+      .insert(pipelines)
+      .values(pipeline)
+      .returning();
+    return created;
+  }
+
+  async getStages(tenantId: string, pipelineId?: string): Promise<Stage[]> {
+    let query = db
+      .select()
+      .from(stages)
+      .where(and(eq(stages.tenantId, tenantId), eq(stages.isActive, true)));
+    
+    if (pipelineId) {
+      query = db
+        .select()
+        .from(stages)
+        .where(and(
+          eq(stages.tenantId, tenantId), 
+          eq(stages.isActive, true),
+          eq(stages.pipelineId, pipelineId)
+        ));
+    }
+    
+    return await query.orderBy(asc(stages.position));
+  }
+
+  async createStage(stage: InsertStage): Promise<Stage> {
+    const [created] = await db
+      .insert(stages)
+      .values(stage)
+      .returning();
+    return created;
+  }
+
+  async getProperties(tenantId: string): Promise<Property[]> {
+    return await db
+      .select()
+      .from(properties)
+      .where(eq(properties.tenantId, tenantId))
+      .orderBy(desc(properties.createdAt));
+  }
+
+  async getProperty(id: string, tenantId: string): Promise<Property | undefined> {
+    const [property] = await db
+      .select()
+      .from(properties)
+      .where(and(eq(properties.id, id), eq(properties.tenantId, tenantId)));
+    return property || undefined;
+  }
+
+  async createProperty(property: InsertProperty): Promise<Property> {
+    const [created] = await db
+      .insert(properties)
+      .values(property)
+      .returning();
+    return created;
+  }
+
+  async updateProperty(id: string, tenantId: string, updates: Partial<InsertProperty>): Promise<Property | undefined> {
+    const [updated] = await db
+      .update(properties)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(properties.id, id), eq(properties.tenantId, tenantId)))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteProperty(id: string, tenantId: string): Promise<void> {
+    await db
+      .delete(properties)
+      .where(and(eq(properties.id, id), eq(properties.tenantId, tenantId)));
+  }
+
+  async getContacts(tenantId: string): Promise<Contact[]> {
+    return await db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.tenantId, tenantId))
+      .orderBy(desc(contacts.createdAt));
+  }
+
+  async getContact(id: string, tenantId: string): Promise<Contact | undefined> {
+    const [contact] = await db
+      .select()
+      .from(contacts)
+      .where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId)));
+    return contact || undefined;
+  }
+
+  async createContact(contact: InsertContact): Promise<Contact> {
+    const [created] = await db
+      .insert(contacts)
+      .values(contact)
+      .returning();
+    return created;
+  }
+
+  async updateContact(id: string, tenantId: string, updates: Partial<InsertContact>): Promise<Contact | undefined> {
+    const [updated] = await db
+      .update(contacts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId)))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteContact(id: string, tenantId: string): Promise<void> {
+    await db
+      .delete(contacts)
+      .where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId)));
+  }
+
+  async getLeads(tenantId: string): Promise<Lead[]> {
+    return await db
+      .select()
+      .from(leads)
+      .where(eq(leads.tenantId, tenantId))
+      .orderBy(desc(leads.createdAt));
+  }
+
+  async getLead(id: string, tenantId: string): Promise<Lead | undefined> {
+    const [lead] = await db
+      .select()
+      .from(leads)
+      .where(and(eq(leads.id, id), eq(leads.tenantId, tenantId)));
+    return lead || undefined;
+  }
+
+  async createLead(lead: InsertLead): Promise<Lead> {
+    const [created] = await db
+      .insert(leads)
+      .values(lead)
+      .returning();
+    return created;
+  }
+
+  async updateLead(id: string, tenantId: string, updates: Partial<InsertLead>): Promise<Lead | undefined> {
+    const [updated] = await db
+      .update(leads)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(leads.id, id), eq(leads.tenantId, tenantId)))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteLead(id: string, tenantId: string): Promise<void> {
+    await db
+      .delete(leads)
+      .where(and(eq(leads.id, id), eq(leads.tenantId, tenantId)));
+  }
+
+  async getDeals(tenantId: string, pipelineId?: string): Promise<(Deal & { property?: Property; contact?: Contact; stage: Stage })[]> {
+    let query = db
+      .select()
+      .from(deals)
+      .leftJoin(properties, eq(deals.propertyId, properties.id))
+      .leftJoin(contacts, eq(deals.contactId, contacts.id))
+      .innerJoin(stages, eq(deals.stageId, stages.id))
+      .where(eq(deals.tenantId, tenantId));
+
+    if (pipelineId) {
+      query = db
+        .select()
+        .from(deals)
+        .leftJoin(properties, eq(deals.propertyId, properties.id))
+        .leftJoin(contacts, eq(deals.contactId, contacts.id))
+        .innerJoin(stages, eq(deals.stageId, stages.id))
+        .where(and(eq(deals.tenantId, tenantId), eq(deals.pipelineId, pipelineId)));
+    }
+
+    const result = await query.orderBy(asc(deals.position));
+    
+    return result.map(row => ({
+      ...row.deals,
+      property: row.properties || undefined,
+      contact: row.contacts || undefined,
+      stage: row.stages,
+    }));
+  }
+
+  async getDeal(id: string, tenantId: string): Promise<(Deal & { property?: Property; contact?: Contact; stage: Stage }) | undefined> {
+    const [result] = await db
+      .select()
+      .from(deals)
+      .leftJoin(properties, eq(deals.propertyId, properties.id))
+      .leftJoin(contacts, eq(deals.contactId, contacts.id))
+      .innerJoin(stages, eq(deals.stageId, stages.id))
+      .where(and(eq(deals.id, id), eq(deals.tenantId, tenantId)));
+
+    if (!result) return undefined;
+
+    return {
+      ...result.deals,
+      property: result.properties || undefined,
+      contact: result.contacts || undefined,
+      stage: result.stages,
+    };
+  }
+
+  async createDeal(deal: InsertDeal): Promise<Deal> {
+    const [created] = await db
+      .insert(deals)
+      .values(deal)
+      .returning();
+    return created;
+  }
+
+  async updateDeal(id: string, tenantId: string, updates: Partial<InsertDeal>): Promise<Deal | undefined> {
+    const [updated] = await db
+      .update(deals)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(deals.id, id), eq(deals.tenantId, tenantId)))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteDeal(id: string, tenantId: string): Promise<void> {
+    await db
+      .delete(deals)
+      .where(and(eq(deals.id, id), eq(deals.tenantId, tenantId)));
+  }
+
+  async getSiteVisits(tenantId: string): Promise<(SiteVisit & { property: Property; contact: Contact })[]> {
+    const result = await db
+      .select()
+      .from(siteVisits)
+      .innerJoin(properties, eq(siteVisits.propertyId, properties.id))
+      .innerJoin(contacts, eq(siteVisits.contactId, contacts.id))
+      .where(eq(siteVisits.tenantId, tenantId))
+      .orderBy(desc(siteVisits.scheduledDate));
+
+    return result.map(row => ({
+      ...row.site_visits,
+      property: row.properties,
+      contact: row.contacts,
+    }));
+  }
+
+  async createSiteVisit(siteVisit: InsertSiteVisit): Promise<SiteVisit> {
+    const [created] = await db
+      .insert(siteVisits)
+      .values(siteVisit)
+      .returning();
+    return created;
+  }
+
+  async createFile(file: InsertFile): Promise<File> {
+    const [created] = await db
+      .insert(files)
+      .values(file)
+      .returning();
+    return created;
+  }
+
+  async getFiles(tenantId: string, entityType?: string, entityId?: string): Promise<File[]> {
+    let query = db
+      .select()
+      .from(files)
+      .where(eq(files.tenantId, tenantId));
+
+    if (entityType && entityId) {
+      query = db
+        .select()
+        .from(files)
+        .where(and(
+          eq(files.tenantId, tenantId),
+          eq(files.entityType, entityType as any),
+          eq(files.entityId, entityId)
+        ));
+    }
+
+    return await query.orderBy(desc(files.createdAt));
+  }
+
+  async getDashboardStats(tenantId: string): Promise<{
+    activeDeals: number;
+    monthlyRevenue: number;
+    propertiesListed: number;
+    siteVisits: number;
+  }> {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Active deals count
+    const [activeDealCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(deals)
+      .where(eq(deals.tenantId, tenantId));
+
+    // Monthly revenue from closed deals
+    const [monthlyRevenue] = await db
+      .select({ sum: sql<number>`coalesce(sum(value), 0)` })
+      .from(deals)
+      .where(and(
+        eq(deals.tenantId, tenantId),
+        sql`actual_close_date >= ${firstDayOfMonth}`,
+        sql`actual_close_date is not null`
+      ));
+
+    // Properties count
+    const [propertiesCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(properties)
+      .where(eq(properties.tenantId, tenantId));
+
+    // Site visits this month
+    const [siteVisitsCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(siteVisits)
+      .where(and(
+        eq(siteVisits.tenantId, tenantId),
+        sql`scheduled_date >= ${firstDayOfMonth}`
+      ));
+
+    return {
+      activeDeals: activeDealCount?.count || 0,
+      monthlyRevenue: monthlyRevenue?.sum || 0,
+      propertiesListed: propertiesCount?.count || 0,
+      siteVisits: siteVisitsCount?.count || 0,
+    };
+  }
+}
+
+export const storage = new DatabaseStorage();

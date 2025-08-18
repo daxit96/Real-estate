@@ -1,0 +1,498 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { storage } from "./storage";
+import { 
+  generateToken, 
+  hashPassword, 
+  verifyPassword, 
+  authenticateToken, 
+  requireAdmin, 
+  requireAgent, 
+  type AuthRequest 
+} from "./middleware/auth";
+import { resolveTenant, requireTenant, type TenantRequest } from "./middleware/tenant";
+import { automationService } from "./services/automation";
+import { sendEmail, generateWelcomeEmail } from "./services/email";
+import { 
+  insertTenantSchema, 
+  insertUserSchema, 
+  insertPropertySchema, 
+  insertContactSchema, 
+  insertLeadSchema, 
+  insertDealSchema 
+} from "@shared/schema";
+import { z } from "zod";
+
+// File upload configuration
+const uploadsDir = path.join(process.cwd(), "server", "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const upload = multer({
+  dest: uploadsDir,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+});
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Authentication routes
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { tenantName, firstName, lastName, email, password, subdomain } = req.body;
+
+      // Validate input
+      if (!tenantName || !firstName || !lastName || !email || !password) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      // Check subdomain availability
+      if (subdomain) {
+        const existingTenant = await storage.getTenantBySubdomain(subdomain);
+        if (existingTenant) {
+          return res.status(400).json({ message: "Subdomain already taken" });
+        }
+      }
+
+      // Create tenant
+      const tenant = await storage.createTenant({
+        name: tenantName,
+        subdomain: subdomain || null,
+        status: "trial",
+      });
+
+      // Create user
+      const hashedPassword = await hashPassword(password);
+      const user = await storage.createUser({
+        firstName,
+        lastName,
+        email,
+        password: hashedPassword,
+        isActive: true,
+      });
+
+      // Link user to tenant as owner
+      await storage.createUserTenant({
+        userId: user.id,
+        tenantId: tenant.id,
+        role: "OWNER",
+        isActive: true,
+      });
+
+      // Create default pipelines
+      const salesPipeline = await storage.createPipeline({
+        tenantId: tenant.id,
+        name: "Sales Pipeline",
+        description: "Primary sales pipeline for property sales",
+        isActive: true,
+      });
+
+      const rentalsPipeline = await storage.createPipeline({
+        tenantId: tenant.id,
+        name: "Rentals Pipeline", 
+        description: "Pipeline for rental properties",
+        isActive: true,
+      });
+
+      // Create default stages for sales pipeline
+      const salesStages = [
+        { name: "Leads", color: "#6b7280", position: 0 },
+        { name: "Qualified", color: "#3b82f6", position: 1 },
+        { name: "Token", color: "#f59e0b", position: 2 },
+        { name: "Closed", color: "#10b981", position: 3 },
+      ];
+
+      for (const stage of salesStages) {
+        await storage.createStage({
+          tenantId: tenant.id,
+          pipelineId: salesPipeline.id,
+          ...stage,
+          isActive: true,
+        });
+      }
+
+      // Create default stages for rentals pipeline
+      const rentalStages = [
+        { name: "Inquiry", color: "#6b7280", position: 0 },
+        { name: "Viewing", color: "#3b82f6", position: 1 },
+        { name: "Application", color: "#f59e0b", position: 2 },
+        { name: "Leased", color: "#10b981", position: 3 },
+      ];
+
+      for (const stage of rentalStages) {
+        await storage.createStage({
+          tenantId: tenant.id,
+          pipelineId: rentalsPipeline.id,
+          ...stage,
+          isActive: true,
+        });
+      }
+
+      // Generate JWT token
+      const token = generateToken(user.id, [tenant.id]);
+
+      // Send welcome email
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Welcome to RealEstate CRM!",
+          html: generateWelcomeEmail(`${user.firstName} ${user.lastName}`, tenant.name),
+        });
+      } catch (emailError) {
+        console.error("Failed to send welcome email:", emailError);
+      }
+
+      res.status(201).json({
+        message: "Account created successfully",
+        user: {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+        },
+        tenant: {
+          id: tenant.id,
+          name: tenant.name,
+          subdomain: tenant.subdomain,
+        },
+        token,
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      // Get user
+      const user = await storage.getUserByEmail(email);
+      if (!user || !user.isActive) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Verify password
+      const isValidPassword = await verifyPassword(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Get user tenants
+      const userTenants = await storage.getUserTenants(user.id);
+      if (userTenants.length === 0) {
+        return res.status(401).json({ message: "No active tenants found" });
+      }
+
+      const tenantIds = userTenants.map(ut => ut.tenantId);
+      const token = generateToken(user.id, tenantIds);
+
+      res.json({
+        message: "Login successful",
+        user: {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+        },
+        tenants: userTenants.map(ut => ({
+          id: ut.tenant.id,
+          name: ut.tenant.name,
+          role: ut.role,
+          subdomain: ut.tenant.subdomain,
+        })),
+        token,
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get current user info
+  app.get("/api/me", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const userTenants = await storage.getUserTenants(user.id);
+
+      res.json({
+        user: {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+        },
+        tenants: userTenants.map(ut => ({
+          id: ut.tenant.id,
+          name: ut.tenant.name,
+          role: ut.role,
+          subdomain: ut.tenant.subdomain,
+          status: ut.tenant.status,
+        })),
+        currentTenantId: req.user!.currentTenantId,
+      });
+    } catch (error) {
+      console.error("Get user error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Protected routes - require authentication and tenant resolution
+  app.use("/api/tenants", authenticateToken);
+  app.use("/api/pipelines", authenticateToken, resolveTenant, requireTenant);
+  app.use("/api/properties", authenticateToken, resolveTenant, requireTenant);
+  app.use("/api/contacts", authenticateToken, resolveTenant, requireTenant);
+  app.use("/api/leads", authenticateToken, resolveTenant, requireTenant);
+  app.use("/api/deals", authenticateToken, resolveTenant, requireTenant);
+  app.use("/api/dashboard", authenticateToken, resolveTenant, requireTenant);
+
+  // Dashboard stats
+  app.get("/api/dashboard/stats", async (req: TenantRequest, res) => {
+    try {
+      const stats = await storage.getDashboardStats(req.tenant!.id);
+      res.json(stats);
+    } catch (error) {
+      console.error("Dashboard stats error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Pipelines
+  app.get("/api/pipelines", async (req: TenantRequest, res) => {
+    try {
+      const pipelines = await storage.getPipelines(req.tenant!.id);
+      res.json(pipelines);
+    } catch (error) {
+      console.error("Get pipelines error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/pipelines/:id/stages", async (req: TenantRequest, res) => {
+    try {
+      const stages = await storage.getStages(req.tenant!.id, req.params.id);
+      res.json(stages);
+    } catch (error) {
+      console.error("Get stages error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Properties
+  app.get("/api/properties", async (req: TenantRequest, res) => {
+    try {
+      const properties = await storage.getProperties(req.tenant!.id);
+      res.json(properties);
+    } catch (error) {
+      console.error("Get properties error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/properties", requireAgent, async (req: TenantRequest, res) => {
+    try {
+      const validatedData = insertPropertySchema.parse({
+        ...req.body,
+        tenantId: req.tenant!.id,
+        createdBy: req.user!.id,
+      });
+
+      const property = await storage.createProperty(validatedData);
+      res.status(201).json(property);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Create property error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/properties/:id", async (req: TenantRequest, res) => {
+    try {
+      const property = await storage.getProperty(req.params.id, req.tenant!.id);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+      res.json(property);
+    } catch (error) {
+      console.error("Get property error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Contacts
+  app.get("/api/contacts", async (req: TenantRequest, res) => {
+    try {
+      const contacts = await storage.getContacts(req.tenant!.id);
+      res.json(contacts);
+    } catch (error) {
+      console.error("Get contacts error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/contacts", requireAgent, async (req: TenantRequest, res) => {
+    try {
+      const validatedData = insertContactSchema.parse({
+        ...req.body,
+        tenantId: req.tenant!.id,
+        assignedTo: req.body.assignedTo || req.user!.id,
+      });
+
+      const contact = await storage.createContact(validatedData);
+      res.status(201).json(contact);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Create contact error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Leads
+  app.get("/api/leads", async (req: TenantRequest, res) => {
+    try {
+      const leads = await storage.getLeads(req.tenant!.id);
+      res.json(leads);
+    } catch (error) {
+      console.error("Get leads error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/leads", requireAgent, async (req: TenantRequest, res) => {
+    try {
+      const validatedData = insertLeadSchema.parse({
+        ...req.body,
+        tenantId: req.tenant!.id,
+        assignedTo: req.body.assignedTo || req.user!.id,
+      });
+
+      const lead = await storage.createLead(validatedData);
+      res.status(201).json(lead);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Create lead error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Deals
+  app.get("/api/deals", async (req: TenantRequest, res) => {
+    try {
+      const pipelineId = req.query.pipelineId as string | undefined;
+      const deals = await storage.getDeals(req.tenant!.id, pipelineId);
+      res.json(deals);
+    } catch (error) {
+      console.error("Get deals error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/deals", requireAgent, async (req: TenantRequest, res) => {
+    try {
+      const validatedData = insertDealSchema.parse({
+        ...req.body,
+        tenantId: req.tenant!.id,
+        assignedTo: req.body.assignedTo || req.user!.id,
+      });
+
+      const deal = await storage.createDeal(validatedData);
+      res.status(201).json(deal);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Create deal error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/deals/:id", requireAgent, async (req: TenantRequest, res) => {
+    try {
+      const dealId = req.params.id;
+      const updates = req.body;
+
+      // Get current deal to check stage change
+      const currentDeal = await storage.getDeal(dealId, req.tenant!.id);
+      if (!currentDeal) {
+        return res.status(404).json({ message: "Deal not found" });
+      }
+
+      const deal = await storage.updateDeal(dealId, req.tenant!.id, updates);
+      if (!deal) {
+        return res.status(404).json({ message: "Deal not found" });
+      }
+
+      // Trigger automation if stage changed
+      if (updates.stageId && updates.stageId !== currentDeal.stageId) {
+        await automationService.processStageChange(
+          req.tenant!.id,
+          dealId,
+          currentDeal.stageId,
+          updates.stageId
+        );
+      }
+
+      res.json(deal);
+    } catch (error) {
+      console.error("Update deal error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // File upload
+  app.post("/api/files/upload", upload.single("file"), async (req: TenantRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const file = await storage.createFile({
+        tenantId: req.tenant!.id,
+        fileName: req.file.filename,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        path: req.file.path,
+        entityType: req.body.entityType || null,
+        entityId: req.body.entityId || null,
+        uploadedBy: req.user!.id,
+      });
+
+      res.status(201).json(file);
+    } catch (error) {
+      console.error("File upload error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  const httpServer = createServer(app);
+  return httpServer;
+}
