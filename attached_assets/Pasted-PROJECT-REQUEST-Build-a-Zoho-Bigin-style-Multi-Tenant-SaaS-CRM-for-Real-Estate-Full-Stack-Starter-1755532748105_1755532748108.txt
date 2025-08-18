@@ -1,0 +1,104 @@
+PROJECT REQUEST — Build a Zoho-Bigin style Multi-Tenant SaaS CRM for Real Estate (Full-Stack Starter)
+
+Short description:
+Build a production-ready, multi-tenant, pipeline-first CRM SaaS targeted at real-estate brokerages. Tenants = brokerages. The output must be a Git-ready monorepo with full source code I own, ready to run on Replit for prototyping and easily deployable to VPS/containers later.
+
+Deliverables (must produce exactly):
+- A monorepo with folders: /server (Node.js + Express) and /client (React + Vite + Tailwind).
+- schema.sql (Postgres DDL) and seed.js to create demo tenant + sample data (Acme Realty, owner, agent, properties, pipelines).
+- .env.example listing all environment vars.
+- README.md with run, test, migrate, deploy (Replit & Docker/Hostinger) instructions.
+- Optional: Dockerfile, docker-compose.yml, and a GitHub Actions deploy workflow.
+- .replit / run script that concurrently starts client + server for Replit environment.
+
+Core requirements & behavior:
+1. **Stack**:
+   - Server: Node 18+, Express, pg (node-postgres), knex or Prisma (migrations), bcryptjs, jsonwebtoken, multer, helmet, cors, node-cron, puppeteer (PDF), axios.
+   - Client: React 18, Vite, Tailwind CSS, react-router, axios, react-beautiful-dnd (kanban), Headless UI optional.
+   - Testing: Jest for server unit tests (auth + tenant middleware).
+2. **Database**:
+   - Primary: PostgreSQL. For Replit demo allow fallback to SQLite (dev.sqlite) if DATABASE_URL not set.
+   - Use UUID primary keys (uuid-ossp extension). Provide indexes on tenant_id columns.
+   - Provide schema.sql with tables: tenants, users, user_tenants, pipelines, stages, properties, projects, mandates, deals, contacts, leads, site_visits, commissions, files, subscriptions, audit_logs.
+   - Include a short example for adding Row Level Security (RLS) policies and note how to enable RLS later.
+3. **Multi-tenant architecture**:
+   - Every business table MUST include tenant_id.
+   - Middleware `resolveTenant(req)` must extract tenant_id from (in order): JWT payload, Host header subdomain (tenant.crm.com), or X-Tenant-ID header.
+   - All DB queries should be filtered by tenant_id (middleware or query builder helpers). If tenant cannot be resolved, return 403.
+   - Implement tenant onboarding flow: Tenant signup creates tenant record + owner user + default pipelines/stages.
+4. **Authentication & RBAC**:
+   - Register (creates tenant + owner), Login returns JWT (user_id, tenant_ids[]).
+   - Invite teammates: email invite with token; invited user accepts and is linked to tenant via user_tenants with role (OWNER, ADMIN, AGENT, LISTING_MANAGER, ACCOUNT).
+   - Middleware `requireRole([...])` for role-protected endpoints.
+   - Password hashing with bcrypt; support password reset via token email.
+5. **Core API endpoints** (REST style)
+   - Auth: POST /api/auth/register, POST /api/auth/login, POST /api/auth/invite, POST /api/auth/accept-invite, GET /api/me, POST /api/auth/switch-tenant
+   - Tenants: GET /api/tenants/:id (super-admin), POST /api/tenants/:id/billing-portal
+   - Pipelines & Stages: GET/POST/PUT/DELETE /api/pipelines, /api/stages
+   - Deals: GET/POST/PUT/DELETE /api/deals (support pipeline_id, stage_id, moveStage endpoint)
+   - Properties: GET/POST/PUT/DELETE /api/properties (with geo fields: lat,lng,locality,city,area,bhk,rera)
+   - Projects & Mandates: CRUD endpoints
+   - Leads & Contacts: CRUD endpoints and auto-dedupe logic (phone/email)
+   - Site Visits: POST /api/sitevisits (schedule), GET /api/sitevisits (filter by date/agent)
+   - Commissions & Transactions: GET/POST for commission calculations, payable tracking
+   - Files: POST /api/files/upload (local storage for demo, S3/Supabase optional)
+   - Webhooks: POST /api/webhooks/stripe, POST /api/webhooks/razorpay
+   - Reports: GET /api/reports/summary (pipeline values, win rate, visits per agent)
+6. **Frontend pages & UX** (mobile-first)
+   - Public: Landing, Pricing, Sign-up (create tenant), Login, Demo tenant access link.
+   - Authenticated: Header with Tenant Switcher (if user has multiple tenants), Dashboard (KPIs & small charts), Contacts, Properties (grid + map), Pipelines (kanban drag & drop), Deals (detail view), Leads, Site Visits Calendar, Team (invite/manage), Billing, Admin console (Super Admin only).
+   - Important: Simple UX like Zoho Bigin — pipeline board is primary screen; actions (add deal, schedule visit) are one-click simple flows.
+7. **Drag & Drop Kanban**:
+   - Use react-beautiful-dnd or dnd-kit for moving deals between stages. On drop, call API to update deal.stage_id & order; trigger server-side automation if defined.
+8. **Automations**:
+   - Rule engine basics: table automation_rules (tenant_id, trigger_type, trigger_params, action_type, action_params). Provide 3 sample rules: (a) Move to Token → create payment link + set property hold; (b) Visit scheduled → send WhatsApp + email + calendar event; (c) Overdue activity → send daily reminder.
+   - Implement node-cron job to run scheduled automations (e.g., overdue reminders).
+9. **Integrations**:
+   - Email: SendGrid or nodemailer SMTP (config via env). Use for invites, notifications, receipts.
+   - WhatsApp/SMS: Twilio or Gupshup adapter example with templated messages for visit confirmations & shortlist links.
+   - Payments: Stripe Checkout + Razorpay Orders (test mode). Provide webhook handlers to update subscription & transaction records.
+   - Google Calendar: server-side example to create events (OAuth credentials via env).
+   - Property portal intake: webhook endpoint example and dedupe mapping (for portals like Magicbricks/99acres via Zapier).
+10. **PDF Shortlist generator**:
+    - Server endpoint POST /api/pdf/shortlist accepts property IDs and returns a PDF (use puppeteer or html-pdf). Include sample HTML template with property images & specs.
+11. **Billing & Subscriptions**:
+    - Implement basic billing plans (Starter, Growth, Pro). Implement checkout endpoints that create Stripe sessions or Razorpay orders. Store subscriptions table and handle webhook events to change tenant status (active/past_due/canceled).
+12. **Admin / Super Admin**:
+    - Super Admin panel to view tenants, usage metrics, suspend/reactivate tenants, impersonate tenant users (for support).
+13. **Security & Best Practices**:
+    - Use helmet, express-rate-limit on auth routes, sanitize inputs, paramize queries (no SQL injection).
+    - Secrets only in .env and not committed; include .env.example.
+    - Provide instructions to enable Postgres RLS and a short example policy in README.
+14. **DevOps / Run & Deploy**:
+    - README instructions for local dev (with SQLite fallback), Replit run (single click), and Docker deployment (Dockerfile + docker-compose) for Hostinger/DO/Hetzner later.
+    - Provide GitHub Actions CI example to build and auto-deploy to server via SSH.
+15. **Seed & Demo Data**:
+    - seed.js to create demo tenant “Acme Realty” with default pipelines (Sales & Rentals), 10 properties, 3 users (owner, agent, accounts), 5 leads, and 2 deals.
+16. **Tests & Lint**:
+    - Basic Jest tests for tenant middleware, auth flow, and a couple of API endpoints. ESLint + Prettier configured.
+17. **Documentation**:
+    - README must include: architecture overview, env list, setup steps for Replit (how to use SQLite fallback), how to connect to Postgres/Supabase, how to enable Stripe/Razorpay & Twilio keys, and a short UX walkthrough (signup → add property → create deal → move to Token → payment flow).
+18. **Quality & Comments**:
+    - Comment code heavily around multi-tenant & security logic. Add TODOs where operator must add API keys or production settings.
+
+Important environment variables (.env.example):
+DATABASE_URL=postgres://user:pass@host:5432/db
+JWT_SECRET=changeme
+SENDGRID_API_KEY=
+TWILIO_SID=
+TWILIO_TOKEN=
+TWILIO_WHATSAPP_NUMBER=
+STRIPE_SECRET=
+RAZORPAY_KEY=
+RAZORPAY_SECRET=
+GOOGLE_CALENDAR_CREDENTIALS_JSON=
+NODE_ENV=development
+
+Final note for the generator:
+- Produce working, runnable code. If any external API keys are required, stub them in demo mode and document how to replace.
+- Prioritize multi-tenant security and a pipeline-first UX (kanban). Keep code modular so it’s easy to extend into a production SaaS later.
+- After generating code, append a short checklist in README for going live: enable HTTPS, move to managed Postgres, configure webhooks, configure domain/subdomain wildcard, enable backups, and configure monitoring.
+
+OUTPUT: one zip-able repository content structure + run instructions. If possible add `.replit` file and a single-command run script.
+
+--- End of prompt
