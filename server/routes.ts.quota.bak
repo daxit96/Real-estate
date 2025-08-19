@@ -371,19 +371,6 @@ app.get("/api/pipelines", async (req: TenantRequest, res) => {
   });
 
   app.post("/api/properties", requireAgent, requireActiveSubscription, async (req: TenantRequest, res) => {
-
-// Quota enforcement for properties
-try { 
-  const tenant = await storage.getTenant(req.tenant!.id);
-  if (tenant) { 
-    const currentCount = await storage.countProperties(req.tenant!.id);
-    const isTrial = tenant.status === 'trial';
-    const allowed = isTrial ? (tenant.trialPropertyLimit ?? (tenant.propertyLimit ?? 0)) : (tenant.propertyLimit ?? 0);
-    if (allowed !== 0 && currentCount >= allowed) { 
-      return res.status(403).json({ message: 'Quota exceeded for properties. Current: ' + currentCount + ', Allowed: ' + allowed });
-    }
-  }
-} catch (err) { console.error('Quota check error:', err); return res.status(500).json({ message: 'Quota check failed' }); }
     try {
       const validatedData = insertPropertySchema.parse({
         ...req.body,
@@ -427,19 +414,6 @@ try {
   });
 
   app.post("/api/contacts", requireAgent, requireActiveSubscription, async (req: TenantRequest, res) => {
-
-// Quota enforcement for contacts
-try { 
-  const tenant = await storage.getTenant(req.tenant!.id);
-  if (tenant) { 
-    const currentCount = await storage.countContacts(req.tenant!.id);
-    const isTrial = tenant.status === 'trial';
-    const allowed = isTrial ? (tenant.trialContactLimit ?? (tenant.contactLimit ?? 0)) : (tenant.contactLimit ?? 0);
-    if (allowed !== 0 && currentCount >= allowed) { 
-      return res.status(403).json({ message: 'Quota exceeded for contacts. Current: ' + currentCount + ', Allowed: ' + allowed });
-    }
-  }
-} catch (err) { console.error('Quota check error:', err); return res.status(500).json({ message: 'Quota check failed' }); }
     try {
       const validatedData = insertContactSchema.parse({
         ...req.body,
@@ -501,33 +475,6 @@ try {
   });
 
   app.post("/api/deals", requireAgent, requireActiveSubscription, async (req: TenantRequest, res) => {
-
-// Per-user active deals limit enforcement
-try {
-  const assignTo = req.body.assignedTo || req.user?.id;
-  if (assignTo) {
-    const userRec = await storage.getUser(assignTo);
-    const roleDefaults: Record<string, number> = { OWNER: 1000000, ADMIN: 1000000, MANAGER: 200, AGENT: 50, VIEWER: 0 };
-    const userLimit = (userRec && (userRec.activeDealsLimit || 0)) || roleDefaults[userRec?.role ?? 'AGENT'] || 50;
-    const currentActive = await storage.countActiveDealsByUser(assignTo, req.tenant!.id);
-    if (userLimit !== 0 && currentActive >= userLimit) {
-      return res.status(403).json({ message: 'Assigned user has reached active deals limit', currentActive, userLimit });
-    }
-  }
-} catch (err) { console.error('User quota check error', err); return res.status(500).json({ message: 'User quota check failed' }); }
-
-// Quota enforcement for deals
-try { 
-  const tenant = await storage.getTenant(req.tenant!.id);
-  if (tenant) { 
-    const currentCount = await storage.countDeals(req.tenant!.id);
-    const isTrial = tenant.status === 'trial';
-    const allowed = isTrial ? (tenant.trialDealLimit ?? (tenant.dealLimit ?? 0)) : (tenant.dealLimit ?? 0);
-    if (allowed !== 0 && currentCount >= allowed) { 
-      return res.status(403).json({ message: 'Quota exceeded for deals. Current: ' + currentCount + ', Allowed: ' + allowed });
-    }
-  }
-} catch (err) { console.error('Quota check error:', err); return res.status(500).json({ message: 'Quota check failed' }); }
     try {
       const validatedData = insertDealSchema.parse({
         ...req.body,
@@ -682,44 +629,3 @@ app.post("/api/deals/:id/approve", requireAdmin, requireActiveSubscription, asyn
     res.status(500).json({ message: 'Error approving deal' });
   }
 });
-
-
-
-// Platform admin: tenants management & manual billing
-app.get("/api/admin/tenants", requireOwner, async (req, res) => {
-  try {
-    const tenants = await storage.getTenants();
-    res.json(tenants);
-  } catch (err) {
-    console.error("Error fetching tenants", err);
-    res.status(500).json({ message: "Error fetching tenants" });
-  }
-});
-
-app.post("/api/admin/tenants/:id/update", requireOwner, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const updates = req.body;
-    const t = await storage.updateTenant(id, updates);
-    if (!t) return res.status(404).json({ message: "Tenant not found" });
-    await storage.createAuditLog({ tenantId: id, userId: req.user?.id, action: 'tenant_updated', entityType: 'tenant', entityId: id, oldValues: updates });
-    res.json(t);
-  } catch (err) {
-    console.error("Error updating tenant", err);
-    res.status(500).json({ message: "Error updating tenant" });
-  }
-});
-
-app.post("/api/admin/tenants/:id/record-payment", requireOwner, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const { amount, note } = req.body;
-    await storage.recordManualPayment(id, req.user?.id, Number(amount || 0), note || '');
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("Error recording manual payment", err);
-    res.status(500).json({ message: "Error recording payment" });
-  }
-});
-
-

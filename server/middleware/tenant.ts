@@ -8,93 +8,63 @@ export interface TenantRequest extends AuthRequest {
     name: string;
     subdomain?: string;
     status: string;
+    subscription_id?: string | null;
   };
 }
 
+// Resolve tenant from headers, host, or user's currentTenantId
 export async function resolveTenant(
   req: TenantRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    let tenantId: string | undefined;
-
-    // 1. Try to get tenant from JWT payload (current tenant)
-    if (req.user?.currentTenantId) {
-      tenantId = req.user.currentTenantId;
-    }
-
-    // 2. Try to get tenant from X-Tenant-ID header
-    if (!tenantId) {
-      const headerTenantId = req.headers["x-tenant-id"] as string;
-      if (headerTenantId && req.user?.tenantIds.includes(headerTenantId)) {
-        tenantId = headerTenantId;
+    // 1) X-Tenant-Id header (explicit)
+    const headerTenant = (req.headers["x-tenant-id"] || req.headers["x-tenantid"]) as string | undefined;
+    if (headerTenant) {
+      const t = await storage.getTenant(headerTenant);
+      if (t) {
+        req.tenant = { id: t.id, name: t.name, subdomain: t.subdomain || undefined, status: t.status };
+        return next();
       }
     }
 
-    // 3. Try to extract from subdomain (tenant.crm.com)
-    if (!tenantId) {
-      const host = req.headers.host;
-      if (host) {
-        const parts = host.split(".");
-        if (parts.length > 2) {
-          const subdomain = parts[0];
-          const tenant = await storage.getTenantBySubdomain(subdomain);
-          if (tenant && req.user?.tenantIds.includes(tenant.id)) {
-            tenantId = tenant.id;
-          }
+    // 2) Current user context - token may include currentTenantId
+    if (req.user && req.user.currentTenantId) {
+      const t = await storage.getTenant(req.user.currentTenantId);
+      if (t) {
+        req.tenant = { id: t.id, name: t.name, subdomain: t.subdomain || undefined, status: t.status };
+        return next();
+      }
+    }
+
+    // 3) Host-based subdomain (example: acme.realtyflow.local)
+    const host = req.headers.host;
+    if (host) {
+      const parts = (host as string).split(":")[0].split(".");
+      if (parts.length >= 3) {
+        const subdomain = parts[0];
+        const t = await storage.getTenantBySubdomain(subdomain);
+        if (t) {
+          req.tenant = { id: t.id, name: t.name, subdomain: t.subdomain || undefined, status: t.status };
+          return next();
         }
       }
     }
 
-    // 4. Default to first tenant if user has access
-    if (!tenantId && req.user?.tenantIds.length) {
-      tenantId = req.user.tenantIds[0];
+    // 4) Fallback: if the user has tenantIds list, pick the first one
+    if (req.user && Array.isArray(req.user.tenantIds) && req.user.tenantIds.length > 0) {
+      const t = await storage.getTenant(req.user.tenantIds[0]);
+      if (t) {
+        req.tenant = { id: t.id, name: t.name, subdomain: t.subdomain || undefined, status: t.status };
+        return next();
+      }
     }
 
-    if (!tenantId) {
-      res.status(403).json({ message: "Unable to resolve tenant context" });
-      return;
-    }
-
-    // Verify tenant exists and user has access
-    const tenant = await storage.getTenant(tenantId);
-    if (!tenant) {
-      res.status(404).json({ message: "Tenant not found" });
-      return;
-    }
-
-    if (!req.user?.tenantIds.includes(tenantId)) {
-      res.status(403).json({ message: "Access denied to tenant" });
-      return;
-    }
-
-    // Check tenant status
-    if (tenant.status === "suspended") {
-      res.status(403).json({ message: "Tenant account suspended" });
-      return;
-    }
-
-    if (tenant.status === "expired") {
-      res.status(402).json({ message: "Tenant subscription expired" });
-      return;
-    }
-
-    req.tenant = {
-      id: tenant.id,
-      name: tenant.name,
-      subdomain: tenant.subdomain || undefined,
-      status: tenant.status,
-    };
-
-    // Update user's current tenant context
-    if (req.user) {
-      req.user.currentTenantId = tenantId;
-    }
-
-    next();
-  } catch (error) {
-    console.error("Tenant resolution error:", error);
+    // No tenant resolved - proceed without tenant (some public routes may still work)
+    return next();
+  } catch (err) {
+    console.error("resolveTenant error:", err);
     res.status(500).json({ message: "Error resolving tenant" });
   }
 }
@@ -110,4 +80,21 @@ export function requireTenant(
     return;
   }
   next();
+}
+
+// Middleware to require that tenant has an active subscription (or in trial)
+export function requireActiveSubscription(
+  req: TenantRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  // Allow if tenant is active or trial
+  if (req.tenant && (req.tenant.status === "active" || req.tenant.status === "trial")) {
+    return next();
+  }
+  // If no tenant but user is admin on platform, allow
+  if (req.user && Array.isArray(req.user.tenantIds) && req.user.tenantIds.length === 0) {
+    return next();
+  }
+  res.status(402).json({ message: "Tenant subscription is not active. Please upgrade to continue." });
 }

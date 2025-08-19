@@ -1,0 +1,36 @@
+import React, { useState } from 'react';
+
+export default function Billing() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const subscribe = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/payments/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: 'premium' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to create session');
+      // Redirect to Stripe Checkout
+      window.location.href = data.url || '/';
+    } catch (err) {
+      setError(err.message || 'Error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
+      <h2>Billing & Subscription</h2>
+      <p>Plan: <b>Premium</b> — unlimited contacts & features.</p>
+      <button onClick={subscribe} disabled={loading}>{loading ? 'Creating session...' : 'Subscribe / Upgrade'}</button>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <p>After payment, your tenant will be activated automatically.</p>
+    </div>
+  )
+}

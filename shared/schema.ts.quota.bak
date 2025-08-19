@@ -23,14 +23,6 @@ export const tenants = pgTable("tenants", {
   subscriptionId: text("subscription_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-
-planName: text("plan_name").default("free"),
-contactLimit: integer("contact_limit").default(1000),
-propertyLimit: integer("property_limit").default(500),
-dealLimit: integer("deal_limit").default(1000),
-trialContactLimit: integer("trial_contact_limit").default(50),
-trialPropertyLimit: integer("trial_property_limit").default(20),
-trialDealLimit: integer("trial_deal_limit").default(50),
 });
 
 // Users table
@@ -44,8 +36,6 @@ export const users = pgTable("users", {
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-
-  activeDealsLimit: integer("active_deals_limit"),
 });
 
 // User-Tenant relationship with roles

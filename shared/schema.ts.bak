@@ -23,14 +23,6 @@ export const tenants = pgTable("tenants", {
   subscriptionId: text("subscription_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-
-planName: text("plan_name").default("free"),
-contactLimit: integer("contact_limit").default(1000),
-propertyLimit: integer("property_limit").default(500),
-dealLimit: integer("deal_limit").default(1000),
-trialContactLimit: integer("trial_contact_limit").default(50),
-trialPropertyLimit: integer("trial_property_limit").default(20),
-trialDealLimit: integer("trial_deal_limit").default(50),
 });
 
 // Users table
@@ -44,8 +36,6 @@ export const users = pgTable("users", {
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-
-  activeDealsLimit: integer("active_deals_limit"),
 });
 
 // User-Tenant relationship with roles
@@ -176,9 +166,6 @@ export const deals = pgTable("deals", {
   title: text("title").notNull(),
   pipelineId: uuid("pipeline_id").references(() => pipelines.id, { onDelete: "cascade" }).notNull(),
   stageId: uuid("stage_id").references(() => stages.id, { onDelete: "cascade" }).notNull(),
-  pendingStageId: uuid("pending_stage_id"),
-  pendingStageRequestedBy: uuid("pending_stage_requested_by"),
-  pendingStageRequestedAt: timestamp("pending_stage_requested_at"),
   propertyId: uuid("property_id").references(() => properties.id),
   contactId: uuid("contact_id").references(() => contacts.id),
   value: decimal("value", { precision: 15, scale: 2 }).notNull(),
@@ -496,21 +483,4 @@ export type SiteVisit = typeof siteVisits.$inferSelect;
 export type InsertSiteVisit = z.infer<typeof insertSiteVisitSchema>;
 
 export type File = typeof files.$inferSelect;
-// Blueprint rules - define required fields and approval requirements for moving to a stage
-export const blueprintRules = pgTable("blueprint_rules", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
-  pipelineId: uuid("pipeline_id").references(() => pipelines.id, { onDelete: "cascade" }).notNull(),
-  stageId: uuid("stage_id").references(() => stages.id, { onDelete: "cascade" }).notNull(),
-  requiredFields: jsonb("required_fields").default(sql`'[]'::jsonb`),
-  approvalRequired: boolean("approval_required").default(false).notNull(),
-  approverRole: text("approver_role"),
-  createdAt: timestamp("created_at").defaultNow().notNull()
-});
-
-export type BlueprintRule = typeof blueprintRules.$inferSelect;
-export const insertBlueprintRuleSchema = createInsertSchema(blueprintRules);
-export type InsertBlueprintRule = z.infer<typeof insertBlueprintRuleSchema>;
-
-
 export type InsertFile = z.infer<typeof insertFileSchema>;

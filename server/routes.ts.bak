@@ -280,66 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Pipelines
-  
-
-// Blueprint rules endpoints
-app.post("/api/pipelines/:pipelineId/blueprints", requireAdmin, requireActiveSubscription, async (req: TenantRequest, res) => {
-  try {
-    const pipelineId = req.params.pipelineId;
-    const { stageId, requiredFields, approvalRequired, approverRole } = req.body;
-    const insert = {
-      tenantId: req.tenant!.id,
-      pipelineId,
-      stageId,
-      requiredFields: requiredFields || [],
-      approvalRequired: !!approvalRequired,
-      approverRole: approverRole || null,
-      createdAt: new Date().toISOString()
-    };
-    const created = await storage.createBlueprintRule(insert);
-    res.json(created);
-  } catch (err) {
-    console.error('Create blueprint error', err);
-    res.status(500).json({ message: 'Error creating blueprint' });
-  }
-});
-
-app.get("/api/pipelines/:pipelineId/blueprints", requireTenant, requireActiveSubscription, async (req: TenantRequest, res) => {
-  try {
-    const pipelineId = req.params.pipelineId;
-    const rows = await storage.getBlueprintsByPipeline(req.tenant!.id, pipelineId);
-    res.json(rows);
-  } catch (err) {
-    console.error('Get blueprints error', err);
-    res.status(500).json({ message: 'Error fetching blueprints' });
-  }
-});
-
-app.put("/api/blueprints/:id", requireAdmin, requireActiveSubscription, async (req: TenantRequest, res) => {
-  try {
-    const id = req.params.id;
-    const updates = req.body;
-    const updated = await storage.updateBlueprintRule(id, req.tenant!.id, updates);
-    if (!updated) return res.status(404).json({ message: 'Not found' });
-    res.json(updated);
-  } catch (err) {
-    console.error('Update blueprint error', err);
-    res.status(500).json({ message: 'Error updating blueprint' });
-  }
-});
-
-app.delete("/api/blueprints/:id", requireAdmin, requireActiveSubscription, async (req: TenantRequest, res) => {
-  try {
-    const id = req.params.id;
-    const ok = await storage.deleteBlueprintRule(id, req.tenant!.id);
-    if (!ok) return res.status(404).json({ message: 'Not found' });
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('Delete blueprint error', err);
-    res.status(500).json({ message: 'Error deleting blueprint' });
-  }
-});
-app.get("/api/pipelines", async (req: TenantRequest, res) => {
+  app.get("/api/pipelines", async (req: TenantRequest, res) => {
     try {
       const pipelines = await storage.getPipelines(req.tenant!.id);
       res.json(pipelines);
@@ -371,19 +312,6 @@ app.get("/api/pipelines", async (req: TenantRequest, res) => {
   });
 
   app.post("/api/properties", requireAgent, requireActiveSubscription, async (req: TenantRequest, res) => {
-
-// Quota enforcement for properties
-try { 
-  const tenant = await storage.getTenant(req.tenant!.id);
-  if (tenant) { 
-    const currentCount = await storage.countProperties(req.tenant!.id);
-    const isTrial = tenant.status === 'trial';
-    const allowed = isTrial ? (tenant.trialPropertyLimit ?? (tenant.propertyLimit ?? 0)) : (tenant.propertyLimit ?? 0);
-    if (allowed !== 0 && currentCount >= allowed) { 
-      return res.status(403).json({ message: 'Quota exceeded for properties. Current: ' + currentCount + ', Allowed: ' + allowed });
-    }
-  }
-} catch (err) { console.error('Quota check error:', err); return res.status(500).json({ message: 'Quota check failed' }); }
     try {
       const validatedData = insertPropertySchema.parse({
         ...req.body,
@@ -427,19 +355,6 @@ try {
   });
 
   app.post("/api/contacts", requireAgent, requireActiveSubscription, async (req: TenantRequest, res) => {
-
-// Quota enforcement for contacts
-try { 
-  const tenant = await storage.getTenant(req.tenant!.id);
-  if (tenant) { 
-    const currentCount = await storage.countContacts(req.tenant!.id);
-    const isTrial = tenant.status === 'trial';
-    const allowed = isTrial ? (tenant.trialContactLimit ?? (tenant.contactLimit ?? 0)) : (tenant.contactLimit ?? 0);
-    if (allowed !== 0 && currentCount >= allowed) { 
-      return res.status(403).json({ message: 'Quota exceeded for contacts. Current: ' + currentCount + ', Allowed: ' + allowed });
-    }
-  }
-} catch (err) { console.error('Quota check error:', err); return res.status(500).json({ message: 'Quota check failed' }); }
     try {
       const validatedData = insertContactSchema.parse({
         ...req.body,
@@ -501,33 +416,6 @@ try {
   });
 
   app.post("/api/deals", requireAgent, requireActiveSubscription, async (req: TenantRequest, res) => {
-
-// Per-user active deals limit enforcement
-try {
-  const assignTo = req.body.assignedTo || req.user?.id;
-  if (assignTo) {
-    const userRec = await storage.getUser(assignTo);
-    const roleDefaults: Record<string, number> = { OWNER: 1000000, ADMIN: 1000000, MANAGER: 200, AGENT: 50, VIEWER: 0 };
-    const userLimit = (userRec && (userRec.activeDealsLimit || 0)) || roleDefaults[userRec?.role ?? 'AGENT'] || 50;
-    const currentActive = await storage.countActiveDealsByUser(assignTo, req.tenant!.id);
-    if (userLimit !== 0 && currentActive >= userLimit) {
-      return res.status(403).json({ message: 'Assigned user has reached active deals limit', currentActive, userLimit });
-    }
-  }
-} catch (err) { console.error('User quota check error', err); return res.status(500).json({ message: 'User quota check failed' }); }
-
-// Quota enforcement for deals
-try { 
-  const tenant = await storage.getTenant(req.tenant!.id);
-  if (tenant) { 
-    const currentCount = await storage.countDeals(req.tenant!.id);
-    const isTrial = tenant.status === 'trial';
-    const allowed = isTrial ? (tenant.trialDealLimit ?? (tenant.dealLimit ?? 0)) : (tenant.dealLimit ?? 0);
-    if (allowed !== 0 && currentCount >= allowed) { 
-      return res.status(403).json({ message: 'Quota exceeded for deals. Current: ' + currentCount + ', Allowed: ' + allowed });
-    }
-  }
-} catch (err) { console.error('Quota check error:', err); return res.status(500).json({ message: 'Quota check failed' }); }
     try {
       const validatedData = insertDealSchema.parse({
         ...req.body,
@@ -557,63 +445,7 @@ try {
         return res.status(404).json({ message: "Deal not found" });
       }
 
-      
-// Blueprint enforcement: if stageId is changing, validate required fields and handle approval workflows
-if (updates && updates.stageId && updates.stageId !== currentDeal.stageId) {
-  // Merge current deal with updates for validation
-  const mergedDeal = { ...currentDeal, ...updates };
-  const blueprint = await storage.getBlueprintByStage(req.tenant!.id, updates.stageId);
-  if (blueprint) {
-    const required = blueprint.requiredFields || [];
-    const missing = [];
-    for (const field of required) {
-      try {
-        if (field.indexOf('.') === -1) {
-          // check on deal
-          const val = mergedDeal[field];
-          if (val === null || val === undefined || val === '') missing.push(field);
-        } else {
-          // dot notation: e.g., property.rera_id
-          const parts = field.split('.');
-          if (parts[0] === 'property') {
-            const propertyId = mergedDeal.propertyId;
-            if (!propertyId) {
-              missing.push(field);
-              continue;
-            }
-            const prop = await storage.getProperty(propertyId);
-            const val = prop ? prop[parts[1]] : undefined;
-            if (val === null || val === undefined || val === '') missing.push(field);
-          } else if (parts[0] === 'contact') {
-            const contactId = mergedDeal.contactId;
-            if (!contactId) {
-              missing.push(field);
-              continue;
-            }
-            const contact = await storage.getContact(contactId);
-            const val = contact ? contact[parts[1]] : undefined;
-            if (val === null || val === undefined || val === '') missing.push(field);
-          } else {
-            // unknown object, treat as missing
-            missing.push(field);
-          }
-        }
-      } catch (e) {
-        missing.push(field);
-      }
-    }
-    if (missing.length > 0) {
-      return res.status(400).json({ message: 'Missing required fields for this stage', missing });
-    }
-    if (blueprint.approvalRequired) {
-      // set pending stage on the deal and create an audit log entry for approval request
-      await storage.updateDeal(dealId, req.tenant!.id, { pendingStageId: updates.stageId, pendingStageRequestedBy: req.user?.id, pendingStageRequestedAt: new Date() as any });
-      await storage.createAuditLog({ tenantId: req.tenant!.id, userId: req.user?.id, action: `Requested approval for stage ${blueprint.stageId} on deal ${dealId}`, entityType: 'deal', entityId: dealId, oldValues: { requestedStage: blueprint.stageId } });
-      return res.json({ message: 'Stage change requires approval and has been requested' });
-    }
-  }
-}
-const deal = await storage.updateDeal(dealId, req.tenant!.id, updates);
+      const deal = await storage.updateDeal(dealId, req.tenant!.id, updates);
       if (!deal) {
         return res.status(404).json({ message: "Deal not found" });
       }
@@ -664,62 +496,3 @@ const deal = await storage.updateDeal(dealId, req.tenant!.id, updates);
   const httpServer = createServer(app);
   return httpServer;
 }
-
-
-app.post("/api/deals/:id/approve", requireAdmin, requireActiveSubscription, async (req: TenantRequest, res) => {
-  try {
-    const dealId = req.params.id;
-    const deal = await storage.getDeal(dealId, req.tenant!.id);
-    if (!deal) return res.status(404).json({ message: 'Deal not found' });
-    if (!deal.pendingStageId) return res.status(400).json({ message: 'No pending stage to approve' });
-
-    // perform approval: move stage, clear pending fields
-    const updated = await storage.updateDeal(dealId, req.tenant!.id, { stageId: deal.pendingStageId, pendingStageId: null, pendingStageRequestedBy: null, pendingStageRequestedAt: null });
-    await storage.createAuditLog({ tenantId: req.tenant!.id, userId: req.user?.id, action: `Approved stage change for deal ${dealId}`, entityType: 'deal', entityId: dealId, oldValues: { fromStage: deal.stageId, toStage: deal.pendingStageId } });
-    res.json(updated);
-  } catch (err) {
-    console.error('Approve deal error', err);
-    res.status(500).json({ message: 'Error approving deal' });
-  }
-});
-
-
-
-// Platform admin: tenants management & manual billing
-app.get("/api/admin/tenants", requireOwner, async (req, res) => {
-  try {
-    const tenants = await storage.getTenants();
-    res.json(tenants);
-  } catch (err) {
-    console.error("Error fetching tenants", err);
-    res.status(500).json({ message: "Error fetching tenants" });
-  }
-});
-
-app.post("/api/admin/tenants/:id/update", requireOwner, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const updates = req.body;
-    const t = await storage.updateTenant(id, updates);
-    if (!t) return res.status(404).json({ message: "Tenant not found" });
-    await storage.createAuditLog({ tenantId: id, userId: req.user?.id, action: 'tenant_updated', entityType: 'tenant', entityId: id, oldValues: updates });
-    res.json(t);
-  } catch (err) {
-    console.error("Error updating tenant", err);
-    res.status(500).json({ message: "Error updating tenant" });
-  }
-});
-
-app.post("/api/admin/tenants/:id/record-payment", requireOwner, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const { amount, note } = req.body;
-    await storage.recordManualPayment(id, req.user?.id, Number(amount || 0), note || '');
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("Error recording manual payment", err);
-    res.status(500).json({ message: "Error recording payment" });
-  }
-});
-
-

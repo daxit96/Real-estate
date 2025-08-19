@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RealEstate CRM - Multi-Tenant Pipeline-First CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            500: '#2563eb',
+                            600: '#1d4ed8',
+                            700: '#1e40af'
+                        },
+                        slate: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 font-sans">
+    <!-- Landing Page Section -->
+    <div id="landing" class="min-h-screen">
+        <!-- Navigation -->
+        <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 flex items-center">
+                            <i class="fas fa-building text-primary-500 text-2xl mr-2"></i>
+                            <span class="text-xl font-bold text-slate-900">RealEstate CRM</span>
+                        </div>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:items-center sm:space-x-8">
+                        <a href="#features" class="text-slate-500 hover:text-slate-900 transition-colors">Features</a>
+                        <a href="#pricing" class="text-slate-500 hover:text-slate-900 transition-colors">Pricing</a>
+                        <button class="text-slate-500 hover:text-slate-900 transition-colors" onclick="showLogin()">Login</button>
+                        <button class="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors" onclick="showSignup()">Start Free Trial</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <div class="relative bg-gradient-to-br from-primary-50 to-slate-100 overflow-hidden">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+                <div class="lg:grid lg:grid-cols-12 lg:gap-8">
+                    <div class="sm:text-center md:max-w-2xl md:mx-auto lg:col-span-6 lg:text-left">
+                        <h1 class="text-4xl font-bold text-slate-900 sm:text-5xl md:text-6xl">
+                            Pipeline-First CRM for 
+                            <span class="text-primary-500">Real Estate</span>
+                        </h1>
+                        <p class="mt-3 text-base text-slate-500 sm:mt-5 sm:text-xl lg:text-lg xl:text-xl">
+                            Streamline your real estate brokerage with our multi-tenant CRM. Manage properties, track deals, and close more transactions with powerful automation.
+                        </p>
+                        <div class="mt-8 sm:max-w-lg sm:mx-auto sm:text-center lg:text-left lg:mx-0">
+                            <button class="bg-primary-500 text-white px-8 py-3 rounded-lg text-lg font-medium hover:bg-primary-600 transition-colors" onclick="showSignup()">
+                                Start Free Trial
+                            </button>
+                            <button class="ml-4 text-primary-500 hover:text-primary-600 transition-colors" onclick="showDemo()">
+                                View Live Demo <i class="fas fa-arrow-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-12 relative sm:max-w-lg sm:mx-auto lg:mt-0 lg:max-w-none lg:mx-0 lg:col-span-6 lg:flex lg:items-center">
+                        <!-- Dashboard Preview -->
+                        <div class="relative mx-auto w-full rounded-lg shadow-2xl lg:max-w-md">
+                            <!-- Dashboard mockup preview showing kanban board -->
+                            <div class="bg-white rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="font-semibold text-slate-900">Sales Pipeline</h3>
+                                    <div class="flex space-x-2">
+                                        <div class="w-3 h-3 bg-red-400 rounded-full"></div>
+                                        <div class="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                                        <div class="w-3 h-3 bg-green-400 rounded-full"></div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-4 gap-2 text-xs">
+                                    <div class="bg-slate-100 p-2 rounded">
+                                        <div class="font-medium mb-1">Leads</div>
+                                        <div class="space-y-1">
+                                            <div class="bg-white p-1 rounded shadow-sm">Property A</div>
+                                            <div class="bg-white p-1 rounded shadow-sm">Property B</div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-blue-50 p-2 rounded">
+                                        <div class="font-medium mb-1">Qualified</div>
+                                        <div class="bg-white p-1 rounded shadow-sm">Property C</div>
+                                    </div>
+                                    <div class="bg-amber-50 p-2 rounded">
+                                        <div class="font-medium mb-1">Token</div>
+                                        <div class="bg-white p-1 rounded shadow-sm">Property D</div>
+                                    </div>
+                                    <div class="bg-green-50 p-2 rounded">
+                                        <div class="font-medium mb-1">Closed</div>
+                                        <div class="bg-white p-1 rounded shadow-sm">Property E</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div id="features" class="py-16 bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="lg:text-center">
+                    <h2 class="text-3xl font-bold text-slate-900">Everything you need to close more deals</h2>
+                    <p class="mt-4 max-w-2xl text-xl text-slate-500 lg:mx-auto">
+                        Built specifically for real estate professionals with multi-tenant architecture
+                    </p>
+                </div>
+
+                <div class="mt-16">
+                    <div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+                        <div class="text-center">
+                            <div class="flex items-center justify-center h-12 w-12 rounded-md bg-primary-500 text-white mx-auto">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                            <h3 class="mt-4 text-lg font-medium text-slate-900">Pipeline Management</h3>
+                            <p class="mt-2 text-base text-slate-500">
+                                Visual kanban boards to track deals from lead to closing
+                            </p>
+                        </div>
+
+                        <div class="text-center">
+                            <div class="flex items-center justify-center h-12 w-12 rounded-md bg-primary-500 text-white mx-auto">
+                                <i class="fas fa-home"></i>
+                            </div>
+                            <h3 class="mt-4 text-lg font-medium text-slate-900">Property Management</h3>
+                            <p class="mt-2 text-base text-slate-500">
+                                Comprehensive property database with images and specifications
+                            </p>
+                        </div>
+
+                        <div class="text-center">
+                            <div class="flex items-center justify-center h-12 w-12 rounded-md bg-primary-500 text-white mx-auto">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <h3 class="mt-4 text-lg font-medium text-slate-900">Team Collaboration</h3>
+                            <p class="mt-2 text-base text-slate-500">
+                                Multi-tenant architecture with role-based access control
+                            </p>
+                        </div>
+
+                        <div class="text-center">
+                            <div class="flex items-center justify-center h-12 w-12 rounded-md bg-primary-500 text-white mx-auto">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <h3 class="mt-4 text-lg font-medium text-slate-900">Analytics & Reports</h3>
+                            <p class="mt-2 text-base text-slate-500">
+                                Track performance, conversion rates, and commission calculations
+                            </p>
+                        </div>
+
+                        <div class="text-center">
+                            <div class="flex items-center justify-center h-12 w-12 rounded-md bg-primary-500 text-white mx-auto">
+                                <i class="fas fa-calendar"></i>
+                            </div>
+                            <h3 class="mt-4 text-lg font-medium text-slate-900">Site Visit Scheduling</h3>
+                            <p class="mt-2 text-base text-slate-500">
+                                Automated scheduling with WhatsApp and email notifications
+                            </p>
+                        </div>
+
+                        <div class="text-center">
+                            <div class="flex items-center justify-center h-12 w-12 rounded-md bg-primary-500 text-white mx-auto">
+                                <i class="fas fa-credit-card"></i>
+                            </div>
+                            <h3 class="mt-4 text-lg font-medium text-slate-900">Payment Integration</h3>
+                            <p class="mt-2 text-base text-slate-500">
+                                Stripe and Razorpay integration for seamless transactions
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Authentication Modals -->
+    <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div class="text-center mb-6">
+                <i class="fas fa-building text-primary-500 text-3xl mb-2"></i>
+                <h2 class="text-2xl font-bold text-slate-900">Welcome Back</h2>
+                <p class="text-slate-500">Sign in to your account</p>
+            </div>
+            <form class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                    <input type="email" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter your email">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter your password">
+                </div>
+                <button type="button" class="w-full bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition-colors" onclick="showDashboard()">
+                    Sign In
+                </button>
+            </form>
+            <div class="mt-4 text-center">
+                <button class="text-slate-500 hover:text-slate-700" onclick="hideModal('loginModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="signupModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div class="text-center mb-6">
+                <i class="fas fa-building text-primary-500 text-3xl mb-2"></i>
+                <h2 class="text-2xl font-bold text-slate-900">Create Your Brokerage</h2>
+                <p class="text-slate-500">Start your 14-day free trial</p>
+            </div>
+            <form class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Brokerage Name</label>
+                    <input type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Acme Realty">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Your Name</label>
+                    <input type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="John Doe">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                    <input type="email" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="john@acmerealty.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Create a password">
+                </div>
+                <button type="button" class="w-full bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition-colors" onclick="showDashboard()">
+                    Create Brokerage
+                </button>
+            </form>
+            <div class="mt-4 text-center">
+                <button class="text-slate-500 hover:text-slate-700" onclick="hideModal('signupModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Application -->
+    <div id="dashboard" class="hidden min-h-screen bg-slate-50">
+        <!-- Header Navigation -->
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+            <div class="px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 flex items-center">
+                            <i class="fas fa-building text-primary-500 text-xl mr-2"></i>
+                            <span class="text-lg font-semibold text-slate-900">RealEstate CRM</span>
+                        </div>
+                        
+                        <!-- Tenant Switcher -->
+                        <div class="ml-8 relative">
+                            <button class="flex items-center space-x-2 text-sm font-medium text-slate-700 hover:text-slate-900 bg-slate-100 px-3 py-1 rounded-lg">
+                                <span>Acme Realty</span>
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <button class="text-slate-500 hover:text-slate-700">
+                            <i class="fas fa-bell"></i>
+                        </button>
+                        <div class="relative">
+                            <button class="flex items-center space-x-2 text-sm font-medium text-slate-700 hover:text-slate-900">
+                                <div class="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                    JD
+                                </div>
+                                <span>John Doe</span>
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar Navigation -->
+        <div class="flex">
+            <nav class="w-64 bg-white border-r border-slate-200 min-h-screen">
+                <div class="p-4">
+                    <div class="space-y-1">
+                        <a href="#" class="bg-primary-50 text-primary-700 group flex items-center px-3 py-2 text-sm font-medium rounded-lg" onclick="showSection('dashboardSection')">
+                            <i class="fas fa-chart-pie mr-3"></i>
+                            Dashboard
+                        </a>
+                        <a href="#" class="text-slate-600 hover:bg-slate-50 hover:text-slate-900 group flex items-center px-3 py-2 text-sm font-medium rounded-lg" onclick="showSection('pipelineSection')">
+                            <i class="fas fa-tasks mr-3"></i>
+                            Pipeline
+                        </a>
+                        <a href="#" class="text-slate-600 hover:bg-slate-50 hover:text-slate-900 group flex items-center px-3 py-2 text-sm font-medium rounded-lg" onclick="showSection('propertiesSection')">
+                            <i class="fas fa-home mr-3"></i>
+                            Properties
+                        </a>
+                        <a href="#" class="text-slate-600 hover:bg-slate-50 hover:text-slate-900 group flex items-center px-3 py-2 text-sm font-medium rounded-lg" onclick="showSection('contactsSection')">
+                            <i class="fas fa-users mr-3"></i>
+                            Contacts
+                        </a>
+                        <a href="#" class="text-slate-600 hover:bg-slate-50 hover:text-slate-900 group flex items-center px-3 py-2 text-sm font-medium rounded-lg" onclick="showSection('leadsSection')">
+                            <i class="fas fa-user-plus mr-3"></i>
+                            Leads
+                        </a>
+                        <a href="#" class="text-slate-600 hover:bg-slate-50 hover:text-slate-900 group flex items-center px-3 py-2 text-sm font-medium rounded-lg">
+                            <i class="fas fa-calendar mr-3"></i>
+                            Site Visits
+                        </a>
+                        <a href="#" class="text-slate-600 hover:bg-slate-50 hover:text-slate-900 group flex items-center px-3 py-2 text-sm font-medium rounded-lg">
+                            <i class="fas fa-file-pdf mr-3"></i>
+                            Shortlists
+                        </a>
+                    </div>
+                    
+                    <div class="mt-8">
+                        <h3 class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Team</h3>
+                        <div class="mt-2 space-y-1">
+                            <a href="#" class="text-slate-600 hover:bg-slate-50 hover:text-slate-900 group flex items-center px-3 py-2 text-sm font-medium rounded-lg">
+                                <i class="fas fa-users mr-3"></i>
+                                Team Members
+                            </a>
+                            <a href="#" class="text-slate-600 hover:bg-slate-50 hover:text-slate-900 group flex items-center px-3 py-2 text-sm font-medium rounded-lg">
+                                <i class="fas fa-cog mr-3"></i>
+                                Settings
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="flex-1 p-6">
+                <!-- Dashboard Section -->
+                <div id="dashboardSection" class="section-content">
+                    <div class="mb-6">
+                        <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
+                        <p class="text-slate-500">Welcome back, John! Here's what's happening at Acme Realty.</p>
+                    </div>
+
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white rounded-lg p-6 border border-slate-200">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-handshake text-primary-600"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-slate-500">Active Deals</div>
+                                    <div class="text-2xl font-bold text-slate-900">23</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg p-6 border border-slate-200">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-chart-line text-green-600"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-slate-500">Monthly Revenue</div>
+                                    <div class="text-2xl font-bold text-slate-900">₹45.2L</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg p-6 border border-slate-200">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-home text-amber-600"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-slate-500">Properties Listed</div>
+                                    <div class="text-2xl font-bold text-slate-900">156</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg p-6 border border-slate-200">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-calendar text-blue-600"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-slate-500">Site Visits</div>
+                                    <div class="text-2xl font-bold text-slate-900">8</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-lg border border-slate-200">
+                            <div class="px-6 py-4 border-b border-slate-200">
+                                <h3 class="text-lg font-medium text-slate-900">Recent Activity</h3>
+                            </div>
+                            <div class="p-6">
+                                <div class="space-y-4">
+                                    <div class="flex items-start space-x-3">
+                                        <div class="w-2 h-2 bg-green-400 rounded-full mt-2"></div>
+                                        <div>
+                                            <p class="text-sm text-slate-900">Deal moved to Token stage</p>
+                                            <p class="text-xs text-slate-500">Luxury Villa in Bandra - 2 hours ago</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start space-x-3">
+                                        <div class="w-2 h-2 bg-blue-400 rounded-full mt-2"></div>
+                                        <div>
+                                            <p class="text-sm text-slate-900">New property added</p>
+                                            <p class="text-xs text-slate-500">3BHK Apartment in Andheri - 4 hours ago</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start space-x-3">
+                                        <div class="w-2 h-2 bg-amber-400 rounded-full mt-2"></div>
+                                        <div>
+                                            <p class="text-sm text-slate-900">Site visit scheduled</p>
+                                            <p class="text-xs text-slate-500">Tomorrow at 3:00 PM - 6 hours ago</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg border border-slate-200">
+                            <div class="px-6 py-4 border-b border-slate-200">
+                                <h3 class="text-lg font-medium text-slate-900">Top Performing Agents</h3>
+                            </div>
+                            <div class="p-6">
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                                AS
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-medium text-slate-900">Amit Sharma</p>
+                                                <p class="text-xs text-slate-500">Senior Agent</p>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-sm font-medium text-slate-900">₹12.5L</p>
+                                            <p class="text-xs text-slate-500">This month</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                                PG
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-medium text-slate-900">Priya Gupta</p>
+                                                <p class="text-xs text-slate-500">Agent</p>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-sm font-medium text-slate-900">₹9.8L</p>
+                                            <p class="text-xs text-slate-500">This month</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                                RK
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-medium text-slate-900">Ravi Kumar</p>
+                                                <p class="text-xs text-slate-500">Junior Agent</p>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-sm font-medium text-slate-900">₹7.2L</p>
+                                            <p class="text-xs text-slate-500">This month</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pipeline Section -->
+                <div id="pipelineSection" class="section-content hidden">
+                    <div class="mb-6 flex justify-between items-center">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-900">Sales Pipeline</h1>
+                            <p class="text-slate-500">Drag and drop deals between stages to update their status.</p>
+                        </div>
+                        <button class="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>
+                            Add Deal
+                        </button>
+                    </div>
+
+                    <!-- Kanban Board -->
+                    <div class="flex space-x-6 overflow-x-auto pb-6">
+                        <!-- Leads Stage -->
+                        <div class="flex-shrink-0 w-80">
+                            <div class="bg-white rounded-lg border border-slate-200">
+                                <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 rounded-t-lg">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="font-medium text-slate-900">Leads</h3>
+                                        <span class="bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded-full">5</span>
+                                    </div>
+                                </div>
+                                <div class="p-4 space-y-3 min-h-[400px]">
+                                    <div class="bg-white border border-slate-200 rounded-lg p-3 cursor-move hover:shadow-md transition-shadow" data-mock="true">
+                                        <div class="flex items-start justify-between mb-2">
+                                            <h4 class="text-sm font-medium text-slate-900">3BHK Luxury Apartment</h4>
+                                            <span class="text-xs text-slate-500">₹2.5Cr</span>
+                                        </div>
+                                        <p class="text-xs text-slate-600 mb-2">Bandra West, Mumbai</p>
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center space-x-2">
+                                                <div class="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-xs">
+                                                    AS
+                                                </div>
+                                                <span class="text-xs text-slate-500">Amit Sharma</span>
+                                            </div>
+                                            <span class="text-xs text-slate-500">2 days ago</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-white border border-slate-200 rounded-lg p-3 cursor-move hover:shadow-md transition-shadow" data-mock="true">
+                                        <div class="flex items-start justify-between mb-2">
+                                            <h4 class="text-sm font-medium text-slate-900">Villa with Pool</h4>
+                                            <span class="text-xs text-slate-500">₹4.2Cr</span>
+                                        </div>
+                                        <p class="text-xs text-slate-600 mb-2">Juhu, Mumbai</p>
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center space-x-2">
+                                                <div class="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">
+                                                    PG
+                                                </div>
+                                                <span class="text-xs text-slate-500">Priya Gupta</span>
+                                            </div>
+                                            <span class="text-xs text-slate-500">1 day ago</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Qualified Stage -->
+                        <div class="flex-shrink-0 w-80">
+                            <div class="bg-white rounded-lg border border-slate-200">
+                                <div class="px-4 py-3 border-b border-slate-200 bg-blue-50 rounded-t-lg">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="font-medium text-slate-900">Qualified</h3>
+                                        <span class="bg-blue-200 text-blue-700 text-xs px-2 py-1 rounded-full">3</span>
+                                    </div>
+                                </div>
+                                <div class="p-4 space-y-3 min-h-[400px]">
+                                    <div class="bg-white border border-slate-200 rounded-lg p-3 cursor-move hover:shadow-md transition-shadow" data-mock="true">
+                                        <div class="flex items-start justify-between mb-2">
+                                            <h4 class="text-sm font-medium text-slate-900">Penthouse Suite</h4>
+                                            <span class="text-xs text-slate-500">₹6.8Cr</span>
+                                        </div>
+                                        <p class="text-xs text-slate-600 mb-2">Worli, Mumbai</p>
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center space-x-2">
+                                                <div class="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-xs">
+                                                    AS
+                                                </div>
+                                                <span class="text-xs text-slate-500">Amit Sharma</span>
+                                            </div>
+                                            <span class="text-xs text-slate-500">3 days ago</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Token Stage -->
+                        <div class="flex-shrink-0 w-80">
+                            <div class="bg-white rounded-lg border border-slate-200">
+                                <div class="px-4 py-3 border-b border-slate-200 bg-amber-50 rounded-t-lg">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="font-medium text-slate-900">Token</h3>
+                                        <span class="bg-amber-200 text-amber-700 text-xs px-2 py-1 rounded-full">2</span>
+                                    </div>
+                                </div>
+                                <div class="p-4 space-y-3 min-h-[400px]">
+                                    <div class="bg-white border border-slate-200 rounded-lg p-3 cursor-move hover:shadow-md transition-shadow" data-mock="true">
+                                        <div class="flex items-start justify-between mb-2">
+                                            <h4 class="text-sm font-medium text-slate-900">Sea View Apartment</h4>
+                                            <span class="text-xs text-slate-500">₹3.2Cr</span>
+                                        </div>
+                                        <p class="text-xs text-slate-600 mb-2">Marine Drive, Mumbai</p>
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center space-x-2">
+                                                <div class="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">
+                                                    RK
+                                                </div>
+                                                <span class="text-xs text-slate-500">Ravi Kumar</span>
+                                            </div>
+                                            <span class="text-xs text-slate-500">1 week ago</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Closed Stage -->
+                        <div class="flex-shrink-0 w-80">
+                            <div class="bg-white rounded-lg border border-slate-200">
+                                <div class="px-4 py-3 border-b border-slate-200 bg-green-50 rounded-t-lg">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="font-medium text-slate-900">Closed</h3>
+                                        <span class="bg-green-200 text-green-700 text-xs px-2 py-1 rounded-full">1</span>
+                                    </div>
+                                </div>
+                                <div class="p-4 space-y-3 min-h-[400px]">
+                                    <div class="bg-white border border-slate-200 rounded-lg p-3 cursor-move hover:shadow-md transition-shadow" data-mock="true">
+                                        <div class="flex items-start justify-between mb-2">
+                                            <h4 class="text-sm font-medium text-slate-900">Modern Studio</h4>
+                                            <span class="text-xs text-green-600 font-medium">₹1.8Cr</span>
+                                        </div>
+                                        <p class="text-xs text-slate-600 mb-2">Powai, Mumbai</p>
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center space-x-2">
+                                                <div class="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-xs">
+                                                    PG
+                                                </div>
+                                                <span class="text-xs text-slate-500">Priya Gupta</span>
+                                            </div>
+                                            <span class="text-xs text-green-600">Closed</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Properties Section -->
+                <div id="propertiesSection" class="section-content hidden">
+                    <div class="mb-6 flex justify-between items-center">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-900">Properties</h1>
+                            <p class="text-slate-500">Manage your property inventory and listings.</p>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors">
+                                <i class="fas fa-filter mr-2"></i>
+                                Filter
+                            </button>
+                            <button class="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>
+                                Add Property
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Property Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Property Card 1 -->
+                        <div class="bg-white rounded-lg border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow" data-mock="true">
+                            <!-- Modern luxury apartment interior with floor-to-ceiling windows overlooking city skyline -->
+                            <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=400" alt="Modern luxury apartment" class="w-full h-48 object-cover" />
+                            <div class="p-4">
+                                <div class="flex items-start justify-between mb-2">
+                                    <h3 class="text-lg font-semibold text-slate-900">Luxury 3BHK Apartment</h3>
+                                    <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">For Sale</span>
+                                </div>
+                                <p class="text-slate-600 text-sm mb-2">Bandra West, Mumbai</p>
+                                <div class="flex items-center space-x-4 text-sm text-slate-500 mb-3">
+                                    <span><i class="fas fa-bed mr-1"></i>3 Beds</span>
+                                    <span><i class="fas fa-bath mr-1"></i>3 Baths</span>
+                                    <span><i class="fas fa-ruler-combined mr-1"></i>1,850 sq ft</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xl font-bold text-slate-900">₹2.5 Cr</span>
+                                    <div class="flex space-x-2">
+                                        <button class="text-slate-400 hover:text-slate-600">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="text-slate-400 hover:text-slate-600">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Property Card 2 -->
+                        <div class="bg-white rounded-lg border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow" data-mock="true">
+                            <!-- Beautiful villa with swimming pool and garden in upscale residential area -->
+                            <img src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=400" alt="Villa with swimming pool" class="w-full h-48 object-cover" />
+                            <div class="p-4">
+                                <div class="flex items-start justify-between mb-2">
+                                    <h3 class="text-lg font-semibold text-slate-900">Premium Villa with Pool</h3>
+                                    <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">For Rent</span>
+                                </div>
+                                <p class="text-slate-600 text-sm mb-2">Juhu, Mumbai</p>
+                                <div class="flex items-center space-x-4 text-sm text-slate-500 mb-3">
+                                    <span><i class="fas fa-bed mr-1"></i>4 Beds</span>
+                                    <span><i class="fas fa-bath mr-1"></i>4 Baths</span>
+                                    <span><i class="fas fa-ruler-combined mr-1"></i>3,200 sq ft</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xl font-bold text-slate-900">₹2.5 L/month</span>
+                                    <div class="flex space-x-2">
+                                        <button class="text-slate-400 hover:text-slate-600">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="text-slate-400 hover:text-slate-600">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Property Card 3 -->
+                        <div class="bg-white rounded-lg border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow" data-mock="true">
+                            <!-- Modern penthouse apartment with panoramic city views and luxury finishes -->
+                            <img src="https://images.unsplash.com/photo-1571939228382-b2f2b585ce15?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=400" alt="Modern penthouse with city view" class="w-full h-48 object-cover" />
+                            <div class="p-4">
+                                <div class="flex items-start justify-between mb-2">
+                                    <h3 class="text-lg font-semibold text-slate-900">Penthouse Suite</h3>
+                                    <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">For Sale</span>
+                                </div>
+                                <p class="text-slate-600 text-sm mb-2">Worli, Mumbai</p>
+                                <div class="flex items-center space-x-4 text-sm text-slate-500 mb-3">
+                                    <span><i class="fas fa-bed mr-1"></i>4 Beds</span>
+                                    <span><i class="fas fa-bath mr-1"></i>5 Baths</span>
+                                    <span><i class="fas fa-ruler-combined mr-1"></i>4,500 sq ft</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xl font-bold text-slate-900">₹6.8 Cr</span>
+                                    <div class="flex space-x-2">
+                                        <button class="text-slate-400 hover:text-slate-600">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="text-slate-400 hover:text-slate-600">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contacts Section -->
+                <div id="contactsSection" class="section-content hidden">
+                    <div class="mb-6 flex justify-between items-center">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-900">Contacts</h1>
+                            <p class="text-slate-500">Manage your clients and prospects.</p>
+                        </div>
+                        <button class="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>
+                            Add Contact
+                        </button>
+                    </div>
+
+                    <!-- Contacts Table -->
+                    <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-slate-200">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Agent</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-slate-200" data-mock="true">
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                                    RM
+                                                </div>
+                                                <div class="ml-3">
+                                                    <div class="text-sm font-medium text-slate-900">Rajesh Mehta</div>
+                                                    <div class="text-sm text-slate-500">Mumbai</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">rajesh.mehta@email.com</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">+91 98765 43210</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                                Buyer
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">Amit Sharma</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <div class="flex space-x-2">
+                                                <button class="text-primary-600 hover:text-primary-900">Edit</button>
+                                                <button class="text-slate-400 hover:text-slate-600">View</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                                    SP
+                                                </div>
+                                                <div class="ml-3">
+                                                    <div class="text-sm font-medium text-slate-900">Sneha Patel</div>
+                                                    <div class="text-sm text-slate-500">Pune</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">sneha.patel@email.com</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">+91 87654 32109</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                Seller
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">Priya Gupta</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <div class="flex space-x-2">
+                                                <button class="text-primary-600 hover:text-primary-900">Edit</button>
+                                                <button class="text-slate-400 hover:text-slate-600">View</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leads Section -->
+                <div id="leadsSection" class="section-content hidden">
+                    <div class="mb-6 flex justify-between items-center">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-900">Leads</h1>
+                            <p class="text-slate-500">Track and convert your prospects into clients.</p>
+                        </div>
+                        <button class="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>
+                            Add Lead
+                        </button>
+                    </div>
+
+                    <!-- Leads Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        <div class="bg-white rounded-lg border border-slate-200 p-6" data-mock="true">
+                            <div class="flex items-start justify-between mb-4">
+                                <div>
+                                    <h3 class="text-lg font-semibold text-slate-900">Arjun Singh</h3>
+                                    <p class="text-sm text-slate-500">Looking for 2BHK in Andheri</p>
+                                </div>
+                                <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">Hot</span>
+                            </div>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex items-center text-sm text-slate-600">
+                                    <i class="fas fa-envelope mr-2"></i>
+                                    arjun.singh@email.com
+                                </div>
+                                <div class="flex items-center text-sm text-slate-600">
+                                    <i class="fas fa-phone mr-2"></i>
+                                    +91 98765 43210
+                                </div>
+                                <div class="flex items-center text-sm text-slate-600">
+                                    <i class="fas fa-map-marker-alt mr-2"></i>
+                                    Budget: ₹80L - ₹1.2Cr
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center text-white text-xs">
+                                        AS
+                                    </div>
+                                    <span class="text-sm text-slate-500">Amit Sharma</span>
+                                </div>
+                                <button class="bg-primary-500 text-white px-3 py-1 rounded text-sm hover:bg-primary-600 transition-colors">
+                                    Follow Up
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg border border-slate-200 p-6" data-mock="true">
+                            <div class="flex items-start justify-between mb-4">
+                                <div>
+                                    <h3 class="text-lg font-semibold text-slate-900">Maya Sharma</h3>
+                                    <p class="text-sm text-slate-500">Interested in luxury apartments</p>
+                                </div>
+                                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">Warm</span>
+                            </div>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex items-center text-sm text-slate-600">
+                                    <i class="fas fa-envelope mr-2"></i>
+                                    maya.sharma@email.com
+                                </div>
+                                <div class="flex items-center text-sm text-slate-600">
+                                    <i class="fas fa-phone mr-2"></i>
+                                    +91 87654 32109
+                                </div>
+                                <div class="flex items-center text-sm text-slate-600">
+                                    <i class="fas fa-map-marker-alt mr-2"></i>
+                                    Budget: ₹2Cr - ₹5Cr
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs">
+                                        PG
+                                    </div>
+                                    <span class="text-sm text-slate-500">Priya Gupta</span>
+                                </div>
+                                <button class="bg-primary-500 text-white px-3 py-1 rounded text-sm hover:bg-primary-600 transition-colors">
+                                    Schedule Visit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // Navigation functions
+            window.showLogin = function() {
+                document.getElementById('loginModal').classList.remove('hidden');
+            };
+
+            window.showSignup = function() {
+                document.getElementById('signupModal').classList.remove('hidden');
+            };
+
+            window.showDemo = function() {
+                // TODO: Implement demo tenant access
+                showDashboard();
+            };
+
+            window.showDashboard = function() {
+                document.getElementById('landing').classList.add('hidden');
+                document.getElementById('loginModal').classList.add('hidden');
+                document.getElementById('signupModal').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+            };
+
+            window.hideModal = function(modalId) {
+                document.getElementById(modalId).classList.add('hidden');
+            };
+
+            window.showSection = function(sectionId) {
+                // Hide all sections
+                const sections = document.querySelectorAll('.section-content');
+                sections.forEach(section => section.classList.add('hidden'));
+                
+                // Show selected section
+                document.getElementById(sectionId).classList.remove('hidden');
+                
+                // Update navigation active state
+                const navLinks = document.querySelectorAll('nav a');
+                navLinks.forEach(link => {
+                    link.classList.remove('bg-primary-50', 'text-primary-700');
+                    link.classList.add('text-slate-600', 'hover:bg-slate-50', 'hover:text-slate-900');
+                });
+                
+                // Add active state to clicked nav item
+                event.target.classList.remove('text-slate-600', 'hover:bg-slate-50', 'hover:text-slate-900');
+                event.target.classList.add('bg-primary-50', 'text-primary-700');
+            };
+
+            // Modal close on outside click
+            document.addEventListener('click', function(event) {
+                const modals = ['loginModal', 'signupModal'];
+                modals.forEach(modalId => {
+                    const modal = document.getElementById(modalId);
+                    if (event.target === modal) {
+                        hideModal(modalId);
+                    }
+                });
+            });
+
+            // Basic drag and drop simulation for kanban
+            // TODO: Implement actual drag and drop with react-beautiful-dnd
+            const dealCards = document.querySelectorAll('[data-mock="true"]');
+            dealCards.forEach(card => {
+                if (card.classList.contains('cursor-move')) {
+                    card.addEventListener('dragstart', function(e) {
+                        // TODO: Implement drag start logic
+                    });
+                    
+                    card.addEventListener('dragend', function(e) {
+                        // TODO: Implement API call to update deal stage
+                    });
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
